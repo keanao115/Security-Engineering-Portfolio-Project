@@ -5,6 +5,7 @@ import {
   PieChart, Pie, Cell, Legend, BarChart, Bar
 } from 'recharts';
 import { fetchLiveNetworkFlows, connectLiveTelemetryStream } from '../services/apiClient';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const PROTOCOL_COLORS = { TCP: '#06b6d4', UDP: '#8b5cf6', ICMP: '#f59e0b', OTHER: '#64748b' };
 
@@ -41,9 +42,12 @@ const PROTOCOL_DIST = [
 ];
 
 export default function LiveNetworkDashboard() {
+  const { t, language } = useLanguage();
+  const isZh = language === 'zh-TW';
+
   const [flows, setFlows] = useState(SAMPLE_FLOWS);
   const [metrics, setMetrics] = useState({ activeFlowCount: 4, totalMbps: '84.2', packetsPerSec: 920, anomalyCount: 1 });
-  const [wsStatus, setWsStatus] = useState('Connecting...');
+  const [wsStatus, setWsStatus] = useState(isZh ? '連線中...' : 'Connecting...');
   const [lastUpdate, setLastUpdate] = useState(new Date().toISOString());
   const [filter, setFilter] = useState('ALL');
   const [directionFilter, setDirectionFilter] = useState('ALL');
@@ -63,8 +67,8 @@ export default function LiveNetworkDashboard() {
         }
         if (msg.type === 'HEARTBEAT') setLastUpdate(msg.timestamp);
       },
-      () => setWsStatus('Live'),
-      () => setWsStatus('Offline (Demo Mode)')
+      () => setWsStatus(isZh ? '實時串流' : 'Live'),
+      () => setWsStatus(isZh ? '離線 (展示模式)' : 'Offline (Demo Mode)')
     );
 
     const ticker = setInterval(() => {
@@ -75,7 +79,7 @@ export default function LiveNetworkDashboard() {
       if (wsRef.current) wsRef.current.close();
       clearInterval(ticker);
     };
-  }, []);
+  }, [isZh]);
 
   const displayFlows = flows.filter(f => {
     const protoMatch = filter === 'ALL' || (filter === 'ANOMALY' ? f.anomalyFlag : f.protocol === filter);
@@ -90,28 +94,30 @@ export default function LiveNetworkDashboard() {
         <div>
           <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
             <Activity className="w-6 h-6 text-cyan-400" />
-            Live Network Flow Monitor
+            {t('sidebar.liveNetwork', 'Live Network Flow Monitor')}
           </h2>
           <p className="text-xs text-slate-400 font-mono mt-1">
-            Real-time NetFlow v9 / IPFIX / sFlow / SPAN telemetry ingestion and bandwidth analysis.
+            {isZh
+              ? '即時 NetFlow v9 / IPFIX / sFlow / SPAN 流量遙測擷取與頻寬深度分析。'
+              : 'Real-time NetFlow v9 / IPFIX / sFlow / SPAN telemetry ingestion and bandwidth analysis.'}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold border ${wsStatus === 'Live' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'}`}>
-            <span className={`w-2 h-2 rounded-full ${wsStatus === 'Live' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+          <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold border ${wsStatus.includes('Live') || wsStatus.includes('實時') ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'}`}>
+            <span className={`w-2 h-2 rounded-full ${wsStatus.includes('Live') || wsStatus.includes('實時') ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
             WebSocket: {wsStatus}
           </span>
-          <span className="text-[10px] font-mono text-slate-500">Updated: {new Date(lastUpdate).toLocaleTimeString()}</span>
+          <span className="text-[10px] font-mono text-slate-500">{isZh ? '更新時間：' : 'Updated:'} {new Date(lastUpdate).toLocaleTimeString()}</span>
         </div>
       </div>
 
       {/* KPI Metric Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Active Flows', value: metrics.activeFlowCount, icon: <Wifi className="w-4 h-4" />, color: 'cyan', unit: '' },
-          { label: 'Live Bandwidth', value: `${metrics.totalMbps}`, icon: <TrendingUp className="w-4 h-4" />, color: 'blue', unit: 'Mbps' },
-          { label: 'Packets / sec', value: metrics.packetsPerSec?.toLocaleString(), icon: <Zap className="w-4 h-4" />, color: 'purple', unit: 'pkt/s' },
-          { label: 'Anomalous Flows', value: metrics.anomalyCount, icon: <AlertTriangle className="w-4 h-4" />, color: 'red', unit: '' },
+          { label: isZh ? '活動流量數' : 'Active Flows', value: metrics.activeFlowCount, icon: <Wifi className="w-4 h-4" />, color: 'cyan', unit: '' },
+          { label: isZh ? '即時頻寬吞吐' : 'Live Bandwidth', value: `${metrics.totalMbps}`, icon: <TrendingUp className="w-4 h-4" />, color: 'blue', unit: 'Mbps' },
+          { label: isZh ? '每秒封包數' : 'Packets / sec', value: metrics.packetsPerSec?.toLocaleString(), icon: <Zap className="w-4 h-4" />, color: 'purple', unit: 'pkt/s' },
+          { label: isZh ? '異常流量告警' : 'Anomalous Flows', value: metrics.anomalyCount, icon: <AlertTriangle className="w-4 h-4" />, color: 'red', unit: '' },
         ].map((kpi, i) => (
           <div key={i} className={`glass-panel p-4 rounded-2xl border ${kpi.color === 'red' && metrics.anomalyCount > 0 ? 'border-red-500/30' : 'border-slate-800'} flex items-center gap-3`}>
             <div className={`p-2.5 rounded-xl bg-${kpi.color}-500/10 text-${kpi.color}-400`}>{kpi.icon}</div>
@@ -130,7 +136,7 @@ export default function LiveNetworkDashboard() {
         {/* Bandwidth Timeline */}
         <div className="lg:col-span-2 glass-panel p-5 rounded-2xl">
           <h3 className="font-bold text-sm text-slate-200 mb-4 flex items-center gap-2">
-            <Activity className="w-4 h-4 text-cyan-400" /> Network Bandwidth Timeline (24h)
+            <Activity className="w-4 h-4 text-cyan-400" /> {isZh ? '網路頻寬吞吐時序趨勢 (24h)' : 'Network Bandwidth Timeline (24h)'}
           </h3>
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
@@ -149,8 +155,8 @@ export default function LiveNetworkDashboard() {
                 <XAxis dataKey="time" stroke="#64748b" fontSize={11} />
                 <YAxis stroke="#64748b" fontSize={11} />
                 <Tooltip contentStyle={{ backgroundColor: '#090d16', borderColor: '#06b6d4', borderRadius: '8px' }} />
-                <Area type="monotone" dataKey="InboundMbps" stroke="#06b6d4" fill="url(#inbound)" name="Inbound Mbps" />
-                <Area type="monotone" dataKey="OutboundMbps" stroke="#8b5cf6" fill="url(#outbound)" name="Outbound Mbps" />
+                <Area type="monotone" dataKey="InboundMbps" stroke="#06b6d4" fill="url(#inbound)" name={isZh ? '入站頻寬 (Mbps)' : 'Inbound Mbps'} />
+                <Area type="monotone" dataKey="OutboundMbps" stroke="#8b5cf6" fill="url(#outbound)" name={isZh ? '出站頻寬 (Mbps)' : 'Outbound Mbps'} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -160,7 +166,7 @@ export default function LiveNetworkDashboard() {
         <div className="glass-panel p-5 rounded-2xl flex flex-col justify-between space-y-4">
           <div>
             <h3 className="font-bold text-sm text-slate-200 mb-2 flex items-center gap-2">
-              <Zap className="w-4 h-4 text-amber-400" /> Top Talkers (Volume)
+              <Zap className="w-4 h-4 text-amber-400" /> {isZh ? '最高流量主機 (Top Talkers)' : 'Top Talkers (Volume)'}
             </h3>
             <div className="space-y-2">
               {TOP_TALKERS_DATA.map((t, i) => (
@@ -173,9 +179,9 @@ export default function LiveNetworkDashboard() {
           </div>
           <div className="pt-2 border-t border-slate-900">
             <h3 className="font-bold text-xs text-slate-400 mb-2 flex items-center gap-2">
-              <Globe className="w-3.5 h-3.5 text-purple-400" /> Protocol Share
+              <Globe className="w-3.5 h-3.5 text-purple-400" /> {isZh ? '協定分佈佔比' : 'Protocol Share'}
             </h3>
-            <div className="flex gap-2 text-[10px] font-mono">
+            <div className="flex gap-2 text-[10px] font-mono flex-wrap">
               {PROTOCOL_DIST.map((p, i) => (
                 <span key={i} style={{ color: p.color }} className="bg-slate-950 px-2 py-1 rounded border border-slate-900">
                   {p.name}: {p.value}%
@@ -190,15 +196,15 @@ export default function LiveNetworkDashboard() {
       <div className="glass-panel p-5 rounded-2xl space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <h3 className="font-bold text-sm text-white flex items-center gap-2">
-            <Shield className="w-4 h-4 text-cyan-400" /> Live Flow Stream
+            <Shield className="w-4 h-4 text-cyan-400" /> {isZh ? '實時網路流量串流' : 'Live Flow Stream'}
           </h3>
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-1">
-              <span className="text-[10px] text-slate-500 font-mono">DIRECTION:</span>
+              <span className="text-[10px] text-slate-500 font-mono">{isZh ? '流向：' : 'DIRECTION:'}</span>
               {['ALL', 'INBOUND', 'OUTBOUND', 'LATERAL'].map(d => (
                 <button key={d} onClick={() => setDirectionFilter(d)}
                   className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition-all ${directionFilter === d ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'bg-slate-900 text-slate-500 hover:text-slate-300'}`}>
-                  {d}
+                  {d === 'ALL' ? t('common.all', 'ALL') : d}
                 </button>
               ))}
             </div>
@@ -206,7 +212,7 @@ export default function LiveNetworkDashboard() {
               {['ALL', 'TCP', 'UDP', 'ANOMALY'].map(f => (
                 <button key={f} onClick={() => setFilter(f)}
                   className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition-all ${filter === f ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white'}`}>
-                  {f}
+                  {f === 'ALL' ? t('common.all', 'ALL') : f === 'ANOMALY' ? (isZh ? '異常' : 'ANOMALY') : f}
                 </button>
               ))}
             </div>
@@ -216,15 +222,15 @@ export default function LiveNetworkDashboard() {
           <table className="w-full text-xs font-mono border-collapse text-left">
             <thead>
               <tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px]">
-                <th className="py-2.5 px-3">Time</th>
-                <th className="py-2.5 px-3">Source</th>
-                <th className="py-2.5 px-3">Direction</th>
+                <th className="py-2.5 px-3">{isZh ? '時間' : 'Time'}</th>
+                <th className="py-2.5 px-3">{isZh ? '來源技術' : 'Source'}</th>
+                <th className="py-2.5 px-3">{isZh ? '方向' : 'Direction'}</th>
                 <th className="py-2.5 px-3">Src IP:Port</th>
                 <th className="py-2.5 px-3">Dst IP:Port</th>
-                <th className="py-2.5 px-3">Proto</th>
-                <th className="py-2.5 px-3">Bytes</th>
-                <th className="py-2.5 px-3">Geo</th>
-                <th className="py-2.5 px-3">Status</th>
+                <th className="py-2.5 px-3">{isZh ? '協定' : 'Proto'}</th>
+                <th className="py-2.5 px-3">{isZh ? '傳輸量' : 'Bytes'}</th>
+                <th className="py-2.5 px-3">{isZh ? '地理位置' : 'Geo'}</th>
+                <th className="py-2.5 px-3">{isZh ? '狀態' : 'Status'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-900">
@@ -252,8 +258,8 @@ export default function LiveNetworkDashboard() {
                   <td className="py-2.5 px-3 text-slate-500">{flow.geoCountry || 'US'}</td>
                   <td className="py-2.5 px-3">
                     {flow.anomalyFlag
-                      ? <span className="flex items-center gap-1 text-red-400 font-bold"><AlertTriangle className="w-3 h-3" /> ANOMALY</span>
-                      : <span className="text-emerald-400">Normal</span>}
+                      ? <span className="flex items-center gap-1 text-red-400 font-bold"><AlertTriangle className="w-3 h-3" /> {isZh ? '異常偵測' : 'ANOMALY'}</span>
+                      : <span className="text-emerald-400">{isZh ? '正常' : 'Normal'}</span>}
                   </td>
                 </tr>
               ))}
@@ -268,25 +274,27 @@ export default function LiveNetworkDashboard() {
           <div className="glass-panel p-6 rounded-2xl max-w-lg w-full border border-red-500/40 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-base font-bold text-red-400 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5" /> Flow Anomaly Detection Detail
+                <AlertTriangle className="w-5 h-5" /> {isZh ? '異常流量偵測細節' : 'Flow Anomaly Detection Detail'}
               </h3>
               <button onClick={() => setSelectedAnomaly(null)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-2 text-xs font-mono">
               <div className="bg-red-500/10 text-red-300 p-3 rounded-xl border border-red-500/30 font-semibold">
-                {selectedAnomaly.anomalyReason || 'Rule Violation: High-risk connection pattern identified'}
+                {selectedAnomaly.anomalyReason || (isZh ? '規則違規：識別出高風險連線特徵' : 'Rule Violation: High-risk connection pattern identified')}
               </div>
               <div className="grid grid-cols-2 gap-2 text-slate-300 pt-2">
-                <div>Source IP: <span className="text-cyan-400">{selectedAnomaly.srcIp}:{selectedAnomaly.srcPort}</span></div>
-                <div>Dest IP: <span className="text-cyan-400">{selectedAnomaly.destIp}:{selectedAnomaly.destPort}</span></div>
-                <div>Protocol: <span className="text-white">{selectedAnomaly.protocol}</span></div>
-                <div>Direction: <span className="text-white">{selectedAnomaly.direction}</span></div>
-                <div>Bytes: <span className="text-white">{(selectedAnomaly.bytes / 1024).toFixed(1)} KB</span></div>
-                <div>Risk Score: <span className="text-red-400 font-bold">{selectedAnomaly.riskScore || 90} / 100</span></div>
+                <div>{isZh ? '來源 IP' : 'Source IP'}: <span className="text-cyan-400">{selectedAnomaly.srcIp}:{selectedAnomaly.srcPort}</span></div>
+                <div>{isZh ? '目的 IP' : 'Dest IP'}: <span className="text-cyan-400">{selectedAnomaly.destIp}:{selectedAnomaly.destPort}</span></div>
+                <div>{isZh ? '協定' : 'Protocol'}: <span className="text-white">{selectedAnomaly.protocol}</span></div>
+                <div>{isZh ? '方向' : 'Direction'}: <span className="text-white">{selectedAnomaly.direction}</span></div>
+                <div>{isZh ? '傳輸大小' : 'Bytes'}: <span className="text-white">{(selectedAnomaly.bytes / 1024).toFixed(1)} KB</span></div>
+                <div>{isZh ? '風險評分' : 'Risk Score'}: <span className="text-red-400 font-bold">{selectedAnomaly.riskScore || 90} / 100</span></div>
               </div>
             </div>
             <div className="pt-3 border-t border-slate-900 flex justify-end">
-              <button onClick={() => setSelectedAnomaly(null)} className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-mono font-bold text-white hover:bg-slate-700">Close</button>
+              <button onClick={() => setSelectedAnomaly(null)} className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-mono font-bold text-white hover:bg-slate-700">
+                {isZh ? '關閉' : 'Close'}
+              </button>
             </div>
           </div>
         </div>

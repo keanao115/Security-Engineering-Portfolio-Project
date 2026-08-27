@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Server, Shield, CheckCircle, AlertTriangle, Lock, Play, Network, Tag, Cpu, Clock, Calendar, ChevronDown, ChevronUp, Wifi } from 'lucide-react';
 import { fetchDiscoveryScope, runAssetDiscoverySweep, fetchAssetInventory } from '../services/apiClient';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const OS_ICON_COLOR = (os) => {
   if (!os) return 'text-slate-400';
@@ -16,6 +17,9 @@ const FALLBACK_ASSETS = [
 ];
 
 export default function AssetDiscoveryView() {
+  const { t, language } = useLanguage();
+  const isZh = language === 'zh-TW';
+
   const [scope, setScope] = useState({ authorizedCidrs: ['192.168.1.0/24', '10.0.0.0/16', '127.0.0.1/32'], scanSpeed: 'Normal' });
   const [assets, setAssets] = useState(FALLBACK_ASSETS);
   const [isRunning, setIsRunning] = useState(false);
@@ -51,12 +55,12 @@ export default function AssetDiscoveryView() {
   };
 
   const handleRunSweep = async () => {
-    if (!newCidr.trim()) { setScopeError('Please enter a CIDR range'); return; }
+    if (!newCidr.trim()) { setScopeError(isZh ? '請輸入有效的 CIDR 網段' : 'Please enter a CIDR range'); return; }
     setScopeError('');
     setIsRunning(true);
     const result = await runAssetDiscoverySweep(newCidr);
     if (result?.error) {
-      setScopeError(result.message || 'Scope authorization violation — target not in authorized CIDR whitelist');
+      setScopeError(result.message || (isZh ? '授權範圍違規 — 目標不在此 CIDR 白名單中' : 'Scope authorization violation — target not in authorized CIDR whitelist'));
     } else if (result?.assets) {
       setLastSweepResult(result);
       setAssets(result.assets);
@@ -79,10 +83,10 @@ export default function AssetDiscoveryView() {
         setScheduledJobs(prev => [data.job, ...prev]);
         setScopeError('');
       } else {
-        setScopeError(data.error || 'Failed to schedule job');
+        setScopeError(data.error || (isZh ? '排程建立失敗' : 'Failed to schedule job'));
       }
     } catch (err) {
-      setScopeError('Backend API unreachable');
+      setScopeError(isZh ? '後端 API 無法連線' : 'Backend API unreachable');
     }
   };
 
@@ -98,10 +102,12 @@ export default function AssetDiscoveryView() {
         <div>
           <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
             <Network className="w-6 h-6 text-cyan-400" />
-            Authorized Network Asset Discovery
+            {t('sidebar.assetDiscovery', 'Authorized Network Asset Discovery')}
           </h2>
           <p className="text-xs text-slate-400 font-mono mt-1">
-            Scope-restricted enterprise asset inventory sweeps. Auto-scheduled jobs execute continuously in the backend.
+            {isZh
+              ? '受嚴格授權限制之企業資產盤點探測。後端排程持續執行資產清冊更新。'
+              : 'Scope-restricted enterprise asset inventory sweeps. Auto-scheduled jobs execute continuously in the backend.'}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -111,10 +117,10 @@ export default function AssetDiscoveryView() {
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/40 hover:bg-emerald-500/30 text-emerald-300 text-xs font-mono transition-all disabled:opacity-50"
           >
             <Wifi className={`w-3.5 h-3.5 ${isRealScanning ? 'animate-pulse' : ''}`} />
-            {isRealScanning ? 'Scanning...' : '🔴 LIVE — Scan Local Network'}
+            {isRealScanning ? (isZh ? '正在探測本機…' : 'Scanning...') : (isZh ? '🔴 實時探測本地網路資產' : '🔴 LIVE — Scan Local Network')}
           </button>
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-mono">
-            <Lock className="w-3.5 h-3.5" /> Authorization Scope Enforced
+            <Lock className="w-3.5 h-3.5" /> {isZh ? '授權範圍驗證已生效' : 'Authorization Scope Enforced'}
           </div>
         </div>
       </div>
@@ -123,25 +129,25 @@ export default function AssetDiscoveryView() {
       {realDiscovery && (
         <div className="bg-emerald-500/5 border border-emerald-500/30 rounded-xl p-4 space-y-3">
           <div className="flex items-center gap-2 text-emerald-400 font-mono text-xs font-bold">
-            <Wifi className="w-4 h-4" /> REAL LOCAL NETWORK DISCOVERY — {realDiscovery.hostname} ({realDiscovery.platform})
+            <Wifi className="w-4 h-4" /> {isZh ? '真實本地網路資產探測結果' : 'REAL LOCAL NETWORK DISCOVERY'} — {realDiscovery.hostname} ({realDiscovery.platform})
             <span className="text-slate-500 font-normal">· {new Date().toLocaleTimeString()}</span>
           </div>
-          <div className="grid grid-cols-3 gap-3 text-xs font-mono">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-mono">
             <div className="bg-slate-900 rounded-lg p-3 border border-slate-700">
-              <div className="text-slate-400 mb-1">Network Interfaces</div>
+              <div className="text-slate-400 mb-1">{isZh ? '網路介面清單' : 'Network Interfaces'}</div>
               {realDiscovery.networkInterfaces?.map((iface, i) => (
                 <div key={i} className="text-white">{iface.name}: <span className="text-cyan-400">{iface.ipv4}</span> <span className="text-slate-500">({iface.mac})</span></div>
               ))}
             </div>
             <div className="bg-slate-900 rounded-lg p-3 border border-slate-700">
-              <div className="text-slate-400 mb-1">ARP Table — {realDiscovery.arpEntries?.length} devices</div>
+              <div className="text-slate-400 mb-1">{isZh ? `ARP 鄰居表 — ${realDiscovery.arpEntries?.length} 台設備` : `ARP Table — ${realDiscovery.arpEntries?.length} devices`}</div>
               {realDiscovery.arpEntries?.slice(0, 5).map((e, i) => (
                 <div key={i} className="text-white"><span className="text-cyan-400">{e.ip}</span> <span className="text-slate-500">{e.mac} ({e.type})</span></div>
               ))}
-              {(realDiscovery.arpEntries?.length > 5) && <div className="text-slate-600">+{realDiscovery.arpEntries.length - 5} more...</div>}
+              {(realDiscovery.arpEntries?.length > 5) && <div className="text-slate-600">+{realDiscovery.arpEntries.length - 5} {isZh ? '更多…' : 'more...'}</div>}
             </div>
             <div className="bg-slate-900 rounded-lg p-3 border border-slate-700">
-              <div className="text-slate-400 mb-1">Active Connections — {realDiscovery.activeConnectionCount}</div>
+              <div className="text-slate-400 mb-1">{isZh ? `本機活動連線 — ${realDiscovery.activeConnectionCount}` : `Active Connections — ${realDiscovery.activeConnectionCount}`}</div>
               {realDiscovery.activeConnections?.filter(c => c.state === 'LISTENING' || c.state === 'LISTEN').slice(0, 5).map((c, i) => (
                 <div key={i} className="text-white">:{c.localPort} <span className="text-emerald-400">{c.protocol}</span> <span className="text-slate-500">LISTEN</span></div>
               ))}
@@ -150,11 +156,10 @@ export default function AssetDiscoveryView() {
         </div>
       )}
 
-
       {/* Scope Configuration Panel */}
       <div className="glass-panel p-5 rounded-2xl space-y-4">
         <h3 className="font-bold text-sm text-slate-200 flex items-center gap-2">
-          <Shield className="w-4 h-4 text-amber-400" /> Administrator-Approved CIDR Whitelist
+          <Shield className="w-4 h-4 text-amber-400" /> {isZh ? '管理員核准之 CIDR 白名單範圍' : 'Administrator-Approved CIDR Whitelist'}
         </h3>
         <div className="flex flex-wrap gap-2">
           {scope.authorizedCidrs?.map((cidr, i) => (
@@ -168,7 +173,7 @@ export default function AssetDiscoveryView() {
             type="text"
             value={newCidr}
             onChange={e => setNewCidr(e.target.value)}
-            placeholder="Enter authorized CIDR (e.g. 192.168.1.0/24)"
+            placeholder={isZh ? "輸入已授權之 CIDR 網段 (例: 192.168.1.0/24)" : "Enter authorized CIDR (e.g. 192.168.1.0/24)"}
             className="flex-1 bg-slate-950 border border-slate-800 text-cyan-300 font-mono text-sm rounded-xl px-4 py-2 focus:outline-none focus:border-cyan-500"
           />
           <div className="flex items-center gap-2">
@@ -177,16 +182,16 @@ export default function AssetDiscoveryView() {
               onChange={e => setScheduleInterval(e.target.value)}
               className="bg-slate-950 border border-slate-800 text-slate-300 font-mono text-xs rounded-xl px-3 py-2"
             >
-              <option value="15">Every 15m</option>
-              <option value="60">Every 1h</option>
-              <option value="360">Every 6h</option>
-              <option value="1440">Every 24h</option>
+              <option value="15">{isZh ? '每 15 分鐘' : 'Every 15m'}</option>
+              <option value="60">{isZh ? '每 1 小時' : 'Every 1h'}</option>
+              <option value="360">{isZh ? '每 6 小時' : 'Every 6h'}</option>
+              <option value="1440">{isZh ? '每 24 小時' : 'Every 24h'}</option>
             </select>
             <button
               onClick={handleScheduleJob}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-mono text-xs"
             >
-              <Calendar className="w-3.5 h-3.5 text-cyan-400" /> Schedule
+              <Calendar className="w-3.5 h-3.5 text-cyan-400" /> {isZh ? '建立排程' : 'Schedule'}
             </button>
             <button
               onClick={handleRunSweep}
@@ -194,7 +199,7 @@ export default function AssetDiscoveryView() {
               className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-mono text-xs font-bold shadow-lg shadow-cyan-500/20 disabled:opacity-50 transition-all shrink-0"
             >
               {isRunning ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Play className="w-4 h-4 fill-white" />}
-              {isRunning ? 'Sweeping…' : 'Run Immediate Sweep'}
+              {isRunning ? (isZh ? '正在掃描中…' : 'Sweeping…') : (isZh ? '立即執行盤點掃描' : 'Run Immediate Sweep')}
             </button>
           </div>
         </div>
@@ -206,7 +211,9 @@ export default function AssetDiscoveryView() {
         {lastSweepResult && (
           <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-mono flex items-center gap-2">
             <CheckCircle className="w-4 h-4 shrink-0" />
-            Sweep complete: <strong>{lastSweepResult.discoveredHostCount}</strong> hosts discovered in <code>{lastSweepResult.scannedCidr}</code>. Authorization verified.
+            {isZh
+              ? `掃描完成：於 ${lastSweepResult.scannedCidr} 網段發現 ${lastSweepResult.discoveredHostCount} 台主機。授權驗證通過。`
+              : `Sweep complete: ${lastSweepResult.discoveredHostCount} hosts discovered in ${lastSweepResult.scannedCidr}. Authorization verified.`}
           </div>
         )}
       </div>
@@ -215,15 +222,15 @@ export default function AssetDiscoveryView() {
       {scheduledJobs.length > 0 && (
         <div className="glass-panel p-4 rounded-2xl border border-slate-800 space-y-2 text-xs font-mono">
           <h4 className="font-bold text-slate-300 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-cyan-400" /> Auto-Running Backend Discovery Jobs
+            <Clock className="w-4 h-4 text-cyan-400" /> {isZh ? '後端背景自動探測任務' : 'Auto-Running Backend Discovery Jobs'}
           </h4>
           <div className="space-y-1">
             {scheduledJobs.map((j, idx) => (
               <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-slate-950 border border-slate-900">
                 <span className="text-cyan-300 font-bold">{j.targetCidr}</span>
-                <span className="text-slate-400">Interval: {j.scheduledIntervalMin}m</span>
+                <span className="text-slate-400">{isZh ? `週期: ${j.scheduledIntervalMin} 分` : `Interval: ${j.scheduledIntervalMin}m`}</span>
                 <span className="text-emerald-400 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> {j.status}</span>
-                <span className="text-slate-500 text-[10px]">Hosts: {j.discoveredCount}</span>
+                <span className="text-slate-500 text-[10px]">{isZh ? `主機數: ${j.discoveredCount}` : `Hosts: ${j.discoveredCount}`}</span>
               </div>
             ))}
           </div>
@@ -236,11 +243,11 @@ export default function AssetDiscoveryView() {
           type="text"
           value={searchFilter}
           onChange={e => setSearchFilter(e.target.value)}
-          placeholder="Search by hostname or IP..."
+          placeholder={isZh ? "透過主機名稱或 IP 搜尋資產..." : "Search by hostname or IP..."}
           className="flex-1 bg-slate-950 border border-slate-800 text-slate-200 text-xs font-mono rounded-xl px-4 py-2 focus:outline-none focus:border-cyan-500"
         />
         <span className="text-xs font-mono text-slate-500">
-          {filtered.length} / {assets.length} assets
+          {filtered.length} / {assets.length} {isZh ? '項資產' : 'assets'}
         </span>
       </div>
 
@@ -292,7 +299,7 @@ export default function AssetDiscoveryView() {
                   className="flex items-center gap-1 text-[11px] text-cyan-400 hover:text-cyan-300"
                 >
                   {expandedAssetId === asset.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                  Software Inventory ({asset.installed_software.length})
+                  {isZh ? `已安裝軟體清冊 (${asset.installed_software.length})` : `Software Inventory (${asset.installed_software.length})`}
                 </button>
                 {expandedAssetId === asset.id && (
                   <div className="mt-2 space-y-1 pl-2 border-l border-slate-800">
@@ -321,9 +328,9 @@ export default function AssetDiscoveryView() {
             )}
 
             <div className="text-[10px] text-slate-600 font-mono border-t border-slate-900 pt-2 flex justify-between">
-              <span>Owner: {asset.owner || 'SOC Inventory'}</span>
+              <span>{isZh ? '資產負責人' : 'Owner'}: {asset.owner || 'SOC Inventory'}</span>
               {asset.vulnerabilityCount > 0 && (
-                <span className="text-amber-400 font-bold">{asset.vulnerabilityCount} Vulns</span>
+                <span className="text-amber-400 font-bold">{asset.vulnerabilityCount} {isZh ? '項弱點' : 'Vulns'}</span>
               )}
             </div>
           </div>

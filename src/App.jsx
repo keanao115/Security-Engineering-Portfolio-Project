@@ -25,6 +25,7 @@ import ZeekSuricataView from './components/ZeekSuricataView';
 import PipelinePerformanceView from './components/PipelinePerformanceView';
 import InvestigationTimelineView from './components/InvestigationTimelineView';
 import { PlatformModeProvider } from './contexts/PlatformModeContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import DemoWarningBanner from './components/DemoWarningBanner';
 
 import { SAMPLE_WINDOWS_LOGS, SAMPLE_LINUX_LOGS, SAMPLE_FIREWALL_LOGS, SAMPLE_NMAP_XML } from './data/sampleData';
@@ -57,7 +58,8 @@ export default function App() {
   };
 
   return (
-    <PlatformModeProvider>
+    <LanguageProvider>
+      <PlatformModeProvider>
       <div className="min-h-screen bg-[#070a12] text-slate-100 font-sans flex flex-col selection:bg-cyan-500 selection:text-white">
         {/* Header */}
         <Header apiKey={apiKey} setApiKey={setApiKey} setShowApiModal={() => setShowApiModal(true)} />
@@ -103,5 +105,6 @@ export default function App() {
       )}
     </div>
     </PlatformModeProvider>
+    </LanguageProvider>
   );
 }

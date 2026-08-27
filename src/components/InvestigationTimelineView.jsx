@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, ShieldAlert, Layers } from 'lucide-react';
 import TelemetrySourceBadge from './TelemetrySourceBadge';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function InvestigationTimelineView() {
+  const { t, language } = useLanguage();
+  const isZh = language === 'zh-TW';
+
   const [timeline, setTimeline] = useState([]);
   const [bundles, setBundles] = useState([]);
 
@@ -29,10 +33,12 @@ export default function InvestigationTimelineView() {
       <div className="flex items-center justify-between border-b border-cyan-500/20 pb-4">
         <div>
           <h2 className="text-xl font-bold bg-gradient-to-r from-amber-400 to-rose-400 bg-clip-text text-transparent flex items-center gap-2">
-            <Clock className="w-6 h-6 text-amber-400" /> Chronological Investigation Timeline & Evidence Bundles
+            <Clock className="w-6 h-6 text-amber-400" /> {isZh ? '鑑識調查時序時間軸與證據聚合包' : 'Chronological Investigation Timeline & Evidence Bundles'}
           </h2>
           <p className="text-xs text-slate-400 font-mono mt-1">
-            Synthesized incident timelines correlating Live Capture, NetFlow, Syslog, WEF, Zeek, and Suricata signals
+            {isZh
+              ? '跨 Live Capture, NetFlow, Syslog, WEF, Zeek 與 Suricata 多源訊號之綜合事件時序關聯。'
+              : 'Synthesized incident timelines correlating Live Capture, NetFlow, Syslog, WEF, Zeek, and Suricata signals'}
           </p>
         </div>
       </div>
@@ -41,11 +47,11 @@ export default function InvestigationTimelineView() {
         {/* Bundles List */}
         <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4">
           <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
-            <Layers className="w-4 h-4 text-amber-400" /> Correlated Evidence Bundles
+            <Layers className="w-4 h-4 text-amber-400" /> {isZh ? '多源關聯證據包' : 'Correlated Evidence Bundles'}
           </h3>
 
           {bundles.length === 0 ? (
-            <p className="text-xs text-slate-500 italic">No multi-source incident bundles detected yet.</p>
+            <p className="text-xs text-slate-500 italic">{isZh ? '目前尚未偵測到多源資安事件聚合包。' : 'No multi-source incident bundles detected yet.'}</p>
           ) : (
             bundles.map((b) => (
               <div key={b.bundleId} className="bg-slate-950 p-3.5 rounded-lg border border-slate-800 space-y-2">
@@ -69,12 +75,12 @@ export default function InvestigationTimelineView() {
         {/* Timeline View */}
         <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4 md:col-span-2">
           <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-cyan-400" /> Live Event Chronology ({timeline.length} events)
+            <Clock className="w-4 h-4 text-cyan-400" /> {isZh ? `實時事件時間序列 (${timeline.length} 筆事件)` : `Live Event Chronology (${timeline.length} events)`}
           </h3>
 
           {timeline.length === 0 ? (
             <p className="text-xs text-slate-500 italic text-center py-8">
-              No timeline events recorded yet. Ingest telemetry or start packet capture to observe events.
+              {isZh ? '目前尚無時間軸事件紀錄。請注入遙測日誌或啟動封包擷取以觀察實時事件。' : 'No timeline events recorded yet. Ingest telemetry or start packet capture to observe events.'}
             </p>
           ) : (
             <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">

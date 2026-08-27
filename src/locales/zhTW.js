@@ -1,0 +1,285 @@
+// Traditional Chinese (zh-TW) Localization Dictionary for CyberMind AI
+
+export const zhTW = {
+  common: {
+    status: "狀態",
+    online: "在線",
+    offline: "離線",
+    search: "搜尋",
+    cancel: "取消",
+    save: "儲存",
+    copy: "複製",
+    copied: "已複製！",
+    loading: "載入中...",
+    error: "錯誤",
+    success: "成功",
+    refresh: "重新整理",
+    export: "匯出",
+    import: "匯入",
+    filter: "篩選",
+    all: "全部",
+    actions: "操作",
+    close: "關閉",
+    viewDetails: "查看詳情",
+    optimal: "良好",
+    critical: "極高風險 (Critical)",
+    high: "高風險 (High)",
+    medium: "中風險 (Medium)",
+    low: "低風險 (Low)",
+    target: "目標",
+    protocol: "協定",
+    port: "通訊埠",
+    service: "服務",
+    evidence: "證據",
+    confidence: "可信度",
+    enabled: "已啟用",
+    disabled: "已停用",
+    featureBadge: "重點功能",
+    prodBadge: "生產級",
+    metricsBadge: "指標",
+    aiBadge: "AI 驅動"
+  },
+
+  header: {
+    title: "CyberMind AI",
+    portfolioTitle: "企業級 AI 網路安全與 SOC 戰情平台",
+    version: "ENTERPRISE v3.0",
+    subtitle: "自主 AI 威脅偵測 & 即時 SOC 安全運維監控中心",
+    engineOnline: "AI 分析引擎：線上 (規則 + LLM)",
+    configureKey: "設定 AI 密鑰",
+    keySet: "AI 密鑰已設定",
+    adminRole: "資安管理員",
+    analystRole: "SOC Tier-3 資深資安分析師",
+    selectLanguage: "切換語言"
+  },
+
+  sidebar: {
+    socNavigation: "SOC 核心導覽",
+    liveMonitoring: "即時監控與遙測數據",
+    aiSimulation: "AI 智慧與模擬實驗室",
+    dashboard: "首頁 Dashboard",
+    threat: "威脅深度分析 (Threat Analysis)",
+    log: "多源日誌分析 (Log Analyzer)",
+    network: "網路安全掃描 (Network Scanner)",
+    vuln: "弱點掃描引擎 (Vulnerability Scanner)",
+    reports: "資安事件報告 (Incident Reports)",
+    mitre: "MITRE ATT&CK 矩陣",
+    ioc: "IOC 威脅情報庫 (IOC Database)",
+    collectors: "採集器管理 (Collector Management)",
+    packetCapture: "即時封包捕獲 (Packet Capture)",
+    zeekSuricata: "Zeek & Suricata IDS 聯防",
+    pipelinePerformance: "數據管線效能 (Pipeline Perf)",
+    investigationTimeline: "事件證據時間軸 (Evidence Timeline)",
+    liveNetwork: "即時網路監控 (Live Network)",
+    packetInspector: "深度封包檢視 (Packet Inspector)",
+    assetDiscovery: "主動資產發現 (Asset Discovery)",
+    siemConsole: "SIEM 即時事件主控台",
+    simulation: "攻擊模擬 (Simulation)",
+    copilot: "SOC Copilot (處置劇本)",
+    rag: "RAG 知識庫 (Knowledge)",
+    chat: "AI 資安助理 (AI Copilot)",
+    settings: "系統設定與權限 (Settings)",
+    securityScore: "企業資安防護評分"
+  },
+
+  dashboard: {
+    criticalIncidentTitle: "偵測到極高風險資安事件：",
+    criticalIncidentDesc: "主機 DC-SRV-01 偵測到混淆 Base64 PowerShell 發起 C2 遠端下載。自動化處置腳本已就緒。",
+    investigateNow: "立即深入調查",
+    overallScore: "整體安全評分",
+    networkProt: "網路安全防護",
+    endpointSec: "終端節點安全",
+    identityAccess: "身分與存取管理",
+    cloudPosture: "雲端安全防護",
+    emailSec: "郵件防護機制",
+    liveAttackTimeline: "24 小時即時網路攻擊時間軸",
+    realTimeVectors: "周界與內部網路即時威脅偵測指標",
+    liveFeed: "即時串流",
+    threatSeverity: "威脅風險等級分佈",
+    severityDistDesc: "目前所有活動中資安警報分佈",
+    telemetryHealth: "SOC 基礎設施與遙測健康度",
+    siemCpu: "SIEM 引擎 CPU",
+    ramUsage: "記憶體使用率",
+    diskUsage: "日誌快取磁碟",
+    paloAltoFw: "Palo Alto 次世代防火牆",
+    avStatus: "防毒軟體定義檔",
+    activeBlocking: "運作中 / 阻擋中",
+    updated: "已更新至最新版 (v4.18)",
+    normal: "正常",
+    bruteForceSeries: "RDP/SSH 暴力破解",
+    scansSeries: "網路埠掃描",
+    c2Series: "C2 訊標外連企圖"
+  },
+
+  threat: {
+    title: "AI 自動化威脅分析與緩解處置",
+    subtitle: "多維度關聯分析、CVE 比對、MITRE ATT&CK 戰術對齊與防禦腳本自動生成。",
+    storylineTitle: "AI 攻擊發展故事線 (Attack Storyline)",
+    storylineContent: "攻擊者透過遠端密碼暴力破解（事件 ID 4625）自 IP 185.220.101.5 鎖定 Administrator 帳號發動入侵。獲取權限後，啟動混淆 Base64 PowerShell（事件 ID 4688）自外部下載惡意載荷 shell.ps1。隨後建立特權後門本地帳號 shadow_admin（事件 ID 4720）進行長期潛伏，並手動清空稽核日誌（事件 ID 1102）企圖銷毀鑑識證據。",
+    targetSystem: "受害目標系統：",
+    attackerOrigin: "攻擊者來源：",
+    mitreTechnique: "MITRE 攻擊手法：",
+    aiFix: "AI 建議緩解措施：",
+    scriptGeneratorTitle: "自動化事件遏阻與防禦腳本生成器",
+    scriptGeneratorDesc: "針對本次事件自動合成可一鍵套用之客製化防禦指令碼",
+    copyCode: "複製腳本",
+    copied: "已複製！",
+    tabs: {
+      powershell: "PowerShell (Windows)",
+      bash: "Bash (Linux)",
+      sigma: "Sigma 偵測規則",
+      yara: "YARA 特徵規則",
+      snort: "Snort IDS 規則",
+      suricata: "Suricata IDS 規則"
+    }
+  },
+
+  logAnalysis: {
+    title: "企業級多源日誌分析器 (Multi-Source Log Analyzer)",
+    subtitle: "支援拖放原始日誌或選擇預設資安事件，立即啟動 AI 異常模式解析。",
+    samplePresets: "預設攻擊日誌實例：",
+    windowsBtn: "Windows Event Log (4625/4688)",
+    linuxBtn: "Linux Syslog / Auth Log",
+    firewallBtn: "Palo Alto 防火牆日誌",
+    uploadBtn: "上傳自訂日誌檔案",
+    runBtn: "執行 AI 威脅分析",
+    analyzingBtn: "AI 正在分析日誌特徵...",
+    filterLabel: "日誌過濾搜尋：",
+    searchPlaceholder: "搜尋 IP、Event ID、關鍵字...",
+    showingEntries: "顯示原始日誌行數："
+  },
+
+  networkScanner: {
+    title: "真實網路安全掃描器 & Node.js 遙測探針",
+    subtitle: "採用 Node.js 原生 net.Socket 於作業系統層發動真實 TCP 三向交握掃描，完全不受瀏覽器沙盒限制。",
+    targetLabel: "目標主機 / 筆電 IP 位址：",
+    importNmap: "匯入真實 Nmap (.xml / .txt)",
+    launchProbe: "發動真實 TCP 通訊埠探針",
+    probing: "正在發送 TCP 探針...",
+    authVerification: "授權驗證聲明：",
+    authText: "我確認擁有該目標主機之所有權，或已取得合法授權進行網路安全性掃描。",
+    showAllPorts: "顯示全部掃描端口 (含關閉/過濾)",
+    showOpenOnly: "僅顯示開放端口 (Open Only)",
+    targetHost: "目標掃描主機",
+    scannerEngine: "掃描引擎",
+    openPortsFound: "發現開放端口",
+    listenersUnit: "個活動監聽服務",
+    verifiedTelemetry: "經認證之通訊埠 Socket 遙測數據",
+    displayingCount: "目前顯示端口數量：",
+    noOpenPortsTitle: "未發現任何開放之 TCP 通訊埠！",
+    noOpenPortsDesc: "目標主機具備良好防護或本機防火牆已啟用封鎖。點擊上方「顯示全部掃描端口」查看遭防火牆拒絕的詳細清單。",
+    readyTitle: "真實 TCP Socket 掃描器已就緒",
+    readyDesc: "輸入您筆電的 IP 位址（例如 127.0.0.1 或 192.168.x.x），勾選授權確認後，點擊「發動真實 TCP 通訊埠探針」即可對本機進行真實網路通訊埠安全性稽核。"
+  },
+
+  vulnScanner: {
+    title: "Nessus / Qualys / OpenVAS 弱點掃描分析引擎",
+    subtitle: "自動化 CVSS 風險評級、可利用性評估、修補優先級排序與企業營運衝擊分析。",
+    filterSeverity: "弱點風險過濾：",
+    showingFindings: "目前符合條件弱點數量：",
+    exploitAvailable: "公開攻擊武器庫 (Exploit)：有",
+    patchPriority: "修補優先級：",
+    businessImpact: "企業衝擊評估：極高機率導致遠端資料外洩或系統遭勒索軟體加密",
+    nvdLink: "NVD 官方漏洞庫連結"
+  },
+
+  reports: {
+    title: "自動化 AI 資安事件應變報告產出器",
+    subtitle: "自動編撰符合 CISO 與董事會稽核規範之正式資安應變報告（含攻擊時間軸、IOC 與緩解清單）。",
+    exportPdf: "匯出 PDF 完整報告",
+    exportMarkdown: "匯出 Markdown 格式",
+    confidentialTag: "機密文件 / 僅限資安長 (CISO) 閱覽",
+    reportTitle: "CYBERMIND AI - 資安事件應變分析報告",
+    executiveSummary: "1. 執行摘要 (Executive Summary)",
+    mitreMapped: "2. MITRE ATT&CK 戰術手法對齊",
+    iocSection: "3. 威脅指標 (Indicators of Compromise, IOC)",
+    maliciousIp: "惡意遠端 IP 位址：",
+    observedPort: "觀測到之 C2 通訊埠：",
+    rogueAccount: "後門管理員帳號："
+  },
+
+  mitre: {
+    title: "MITRE ATT&CK 企業戰術矩陣導航儀",
+    subtitle: "互動式攻擊手法覆蓋率看板，紅色高亮顯示目前正在被利用的活躍威脅向量。",
+    flaggedTag: "本次資安事件已命中手法",
+    techDetails: "戰術技術詳情："
+  },
+
+  ioc: {
+    title: "IOC 威脅情報庫 & 外部威脅情資來源",
+    subtitle: "檢索惡意 IP、檔案雜湊 (MD5/SHA256)、C2 網域名稱與整合情報 (AbuseIPDB, VirusTotal, Shodan)。",
+    searchPlaceholder: "搜尋 IP、MD5/SHA256 雜湊、網域、惡意軟體名稱...",
+    activeFeed: "目前情報來源：",
+    sourcesConnected: "4 個全球情報源即時連線中",
+    indicator: "威脅指標 (Indicator)",
+    threatType: "類型",
+    classification: "威脅分類",
+    confidence: "可信度",
+    originCountry: "來源地區",
+    intelSource: "情報資料庫"
+  },
+
+  simulation: {
+    title: "真實網路攻擊模擬 & SOC 即時應變演練場",
+    subtitle: "實時模擬暴力破解、混淆 PowerShell C2、LockBit 勒索軟體破壞、SQL 注入等經典攻擊場景。",
+    simulationTag: "攻擊演練",
+    launchBtn: "啟動攻擊模擬",
+    simulatingBtn: "正在執行攻擊載荷...",
+    consoleTitle: "SOC 即時事件串流主控台",
+    executingStatus: "正在發射攻擊載荷",
+    idleStatus: "系統待命 / 監控中",
+    idlePrompt: "點擊上方任一攻擊場景的「啟動攻擊模擬」即可在主控台觀看即時遙測串流...",
+    counterMeasureTitle: "CyberMind AI 自動化防禦反制機制已觸發",
+    mitigatedStatus: "威脅已遏阻 (MITIGATED)"
+  },
+
+  copilot: {
+    title: "SOC 資安分析師 Copilot & 事件調查處置劇本",
+    subtitle: "引導式標準作業程序 (SOP)，提供循序漸進的排查清單與一鍵式主機網絡隔離觸發器。",
+    availablePlaybooks: "可用處置劇本：",
+    stepsCount: "個引導式排查步驟",
+    activeResponse: "事件應變進行中",
+    emergencyTrigger: "緊急行動觸發器：",
+    isolateHostBtn: "立即隔離目標主機 DC-SRV-01"
+  },
+
+  rag: {
+    title: "RAG 檢索增強資安知識庫 (NIST / OWASP / MITRE)",
+    subtitle: "搜尋內建專業資安知識庫，AI 自動引述標準指引與 Event ID 排查方法。",
+    searchPlaceholder: "搜尋 NIST 800-61, OWASP Top 10, Windows Event ID (如 4625), MITRE T1059..."
+  },
+
+  chat: {
+    title: "CyberMind AI 智慧資安助手 (Security Copilot)",
+    subtitle: "針對可疑日誌提問、查詢資安事件、要求生成客製化 YARA / Sigma / PowerShell 防禦規則。",
+    initialGreeting: "長官好！我是 CyberMind AI 資安助手。您可以向我詢問任何關於 Windows 事件日誌、Linux 授權紀錄、防火牆封包的問題，或要求我立即為您生成應變處置腳本。",
+    inputPlaceholder: "提問範例：'為什麼這個 Windows Event 很可疑？'、'生成阻擋 IP 185.220.101.5 的 PowerShell 腳本'...",
+    sendBtn: "發送",
+    reasoningStatus: "CyberMind AI 正在推理中..."
+  },
+
+  settings: {
+    title: "系統設定與使用者權限配置",
+    subtitle: "切換 AI 推理模型、設定 API 金鑰憑證、語言偏好與角色權限存取控制 (RBAC)。",
+    languageSection: "語言與介面偏好設定 (Language & Region)",
+    languageDesc: "選擇系統操作介面的主要顯示語言。",
+    aiModelSection: "AI 推理模型選擇",
+    deepReasoning: "深度資安脈絡推理 (推薦)",
+    ultraFast: "極速日誌比對與高通量分析",
+    offlineMode: "100% 離線本地規則引擎運算",
+    apiKeySection: "API 金鑰與憑證管理",
+    keyLabel: "Gemini / OpenAI API 密鑰：",
+    rbacSection: "角色存取控制 (RBAC 矩陣)",
+    adminRole: "資安管理員 (完整權限)",
+    analystRole: "SOC 分析師",
+    engineerRole: "資安維運工程師",
+    readOnlyRole: "唯讀稽核員"
+  },
+
+  apiKeyModal: {
+    title: "配置 AI API 密鑰",
+    description: "請輸入您的 Google Gemini 或 OpenAI API Key 以啟用深度雲端威脅情資推理。若未填寫，系統將自動以內建的高速離線資安規則引擎運行。",
+    placeholder: "AIzaSy... / sk-...",
+    saveAndClose: "儲存並關閉"
+  }
+};

@@ -26,8 +26,12 @@ import {
 } from '../services/apiClient';
 import TelemetrySourceBadge from './TelemetrySourceBadge';
 import LiveEmptyState from './LiveEmptyState';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function CollectorManagementView() {
+  const { t, language } = useLanguage();
+  const isZh = language === 'zh-TW';
+
   const [collectors, setCollectors] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [events, setEvents] = useState([]);
@@ -64,7 +68,7 @@ export default function CollectorManagementView() {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 3000);
+    const interval = setInterval(loadData, 5000);
     return () => clearInterval(interval);
   }, [filterCollector, filterSeverity, searchQuery]);
 
@@ -116,11 +120,13 @@ export default function CollectorManagementView() {
           <div className="flex items-center gap-3">
             <Radio className="w-7 h-7 text-cyan-400 animate-pulse" />
             <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-              Telemetry Collector Management
+              {t('sidebar.collectorMgmt', 'Telemetry Collector Management')}
             </h1>
           </div>
           <p className="text-sm text-slate-400 mt-1">
-            Enterprise Live Ingestion Layer: Syslog (RFC 3164/5424), Windows Event Collector (WEF/WinRM XML), and NetFlow v5/v9/IPFIX
+            {isZh
+              ? '企業級實時日誌擷取層：Syslog (RFC 3164/5424), Windows Event Collector (WEF/WinRM XML), 以及 NetFlow v5/v9/IPFIX。'
+              : 'Enterprise Live Ingestion Layer: Syslog (RFC 3164/5424), Windows Event Collector (WEF/WinRM XML), and NetFlow v5/v9/IPFIX'}
           </p>
         </div>
         <button
@@ -128,7 +134,7 @@ export default function CollectorManagementView() {
           className="flex items-center gap-2 px-4 py-2 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 rounded-lg border border-cyan-500/30 transition-all font-medium text-sm"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh Status
+          {isZh ? '重新整理狀態' : 'Refresh Status'}
         </button>
       </div>
 
@@ -136,7 +142,9 @@ export default function CollectorManagementView() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-slate-800/40 p-5 rounded-xl border border-slate-700/50 flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Ingestion Rate</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              {isZh ? '總日誌擷取速率' : 'Total Ingestion Rate'}
+            </span>
             <div className="text-2xl font-black text-cyan-400 mt-1">
               {metrics?.aggregateEventsPerSec || 0} <span className="text-xs text-slate-400 font-normal">events/sec</span>
             </div>
@@ -146,7 +154,9 @@ export default function CollectorManagementView() {
 
         <div className="bg-slate-800/40 p-5 rounded-xl border border-slate-700/50 flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Events Processed</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              {isZh ? '已處理事件總數' : 'Total Events Processed'}
+            </span>
             <div className="text-2xl font-black text-blue-400 mt-1">
               {(metrics?.totalEventsProcessed || 0).toLocaleString()}
             </div>
@@ -156,7 +166,9 @@ export default function CollectorManagementView() {
 
         <div className="bg-slate-800/40 p-5 rounded-xl border border-slate-700/50 flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Dropped Packets</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              {isZh ? '丟棄封包數' : 'Dropped Packets'}
+            </span>
             <div className="text-2xl font-black text-amber-400 mt-1">
               {(metrics?.totalDroppedPackets || 0).toLocaleString()}
             </div>
@@ -166,7 +178,9 @@ export default function CollectorManagementView() {
 
         <div className="bg-slate-800/40 p-5 rounded-xl border border-slate-700/50 flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Active Collectors</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              {isZh ? '活動中收集器' : 'Active Collectors'}
+            </span>
             <div className="text-2xl font-black text-emerald-400 mt-1">
               {collectors.filter((c) => c.liveness).length} / {collectors.length}
             </div>
@@ -203,27 +217,27 @@ export default function CollectorManagementView() {
 
                 <div className="space-y-2 text-xs text-slate-300 bg-slate-900/60 p-3.5 rounded-lg border border-slate-800">
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Listening Ports:</span>
+                    <span className="text-slate-400">{isZh ? '監聽通訊埠：' : 'Listening Ports:'}</span>
                     <span className="font-mono text-cyan-400 font-medium">
                       {c.listeningPorts.length > 0 ? c.listeningPorts.join(', ') : 'None'}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Active Connections:</span>
+                    <span className="text-slate-400">{isZh ? '活動連線數：' : 'Active Connections:'}</span>
                     <span className="font-mono">{c.activeConnections}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Events / Sec:</span>
+                    <span className="text-slate-400">{isZh ? '事件通量：' : 'Events / Sec:'}</span>
                     <span className="font-mono font-bold text-emerald-400">
                       {colMetrics?.eventsPerSecond || 0} eps
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Avg Latency:</span>
+                    <span className="text-slate-400">{isZh ? '平均延遲：' : 'Avg Latency:'}</span>
                     <span className="font-mono">{colMetrics?.averageLatencyMs || 0} ms</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Queue Watermark:</span>
+                    <span className="text-slate-400">{isZh ? '佇列水位：' : 'Queue Watermark:'}</span>
                     <span className="font-mono text-amber-400 font-semibold">
                       {colMetrics?.watermarkStatus || 'NORMAL'}
                     </span>
@@ -239,7 +253,7 @@ export default function CollectorManagementView() {
                     disabled={actionLoading === `${c.name}-resume`}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-semibold transition-all"
                   >
-                    <Play className="w-3.5 h-3.5" /> Resume
+                    <Play className="w-3.5 h-3.5" /> {isZh ? '恢復運作' : 'Resume'}
                   </button>
                 ) : (
                   <button
@@ -247,7 +261,7 @@ export default function CollectorManagementView() {
                     disabled={c.state !== 'Running' || actionLoading === `${c.name}-pause`}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs font-semibold transition-all disabled:opacity-40"
                   >
-                    <Pause className="w-3.5 h-3.5" /> Pause
+                    <Pause className="w-3.5 h-3.5" /> {isZh ? '暫停' : 'Pause'}
                   </button>
                 )}
 
@@ -256,7 +270,7 @@ export default function CollectorManagementView() {
                   disabled={actionLoading === `${c.name}-restart`}
                   className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-semibold transition-all"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" /> Restart
+                  <RotateCcw className="w-3.5 h-3.5" /> {isZh ? '重啟' : 'Restart'}
                 </button>
 
                 {c.state === 'Stopped' ? (
@@ -265,7 +279,7 @@ export default function CollectorManagementView() {
                     disabled={actionLoading === `${c.name}-start`}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-semibold transition-all"
                   >
-                    <Play className="w-3.5 h-3.5" /> Start
+                    <Play className="w-3.5 h-3.5" /> {isZh ? '啟動' : 'Start'}
                   </button>
                 ) : (
                   <button
@@ -273,7 +287,7 @@ export default function CollectorManagementView() {
                     disabled={actionLoading === `${c.name}-stop`}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 rounded-lg text-xs font-semibold transition-all"
                   >
-                    <Square className="w-3.5 h-3.5" /> Stop
+                    <Square className="w-3.5 h-3.5" /> {isZh ? '停止' : 'Stop'}
                   </button>
                 )}
               </div>
@@ -287,10 +301,10 @@ export default function CollectorManagementView() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-              <Layers className="w-5 h-5 text-cyan-400" /> Live Telemetry Stream Inspector
+              <Layers className="w-5 h-5 text-cyan-400" /> {isZh ? '實時遙測資料串流檢閱器' : 'Live Telemetry Stream Inspector'}
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Real-time normalized security events outputted across all active collectors ({totalEventsCount} events)
+              {isZh ? `跨所有活動收集器正規化輸出之實時資安日誌 (${totalEventsCount} 筆事件)` : `Real-time normalized security events outputted across all active collectors (${totalEventsCount} events)`}
             </p>
           </div>
 
@@ -300,19 +314,19 @@ export default function CollectorManagementView() {
               <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search host, IP, event type..."
+                placeholder={isZh ? "搜尋主機、IP、事件類型..." : "Search host, IP, event type..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-4 py-1.5 bg-slate-900/80 border border-slate-700 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-cyan-500 w-52"
+                className="pl-9 pr-4 py-1.5 bg-slate-900/80 border border-slate-700 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-cyan-500 w-52 font-mono"
               />
             </div>
 
             <select
               value={filterCollector}
               onChange={(e) => setFilterCollector(e.target.value)}
-              className="px-3 py-1.5 bg-slate-900/80 border border-slate-700 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+              className="px-3 py-1.5 bg-slate-900/80 border border-slate-700 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono"
             >
-              <option value="">All Collectors</option>
+              <option value="">{isZh ? '所有收集器' : 'All Collectors'}</option>
               <option value="syslog">Syslog</option>
               <option value="wef">Windows WEF</option>
               <option value="netflow">NetFlow</option>
@@ -321,9 +335,9 @@ export default function CollectorManagementView() {
             <select
               value={filterSeverity}
               onChange={(e) => setFilterSeverity(e.target.value)}
-              className="px-3 py-1.5 bg-slate-900/80 border border-slate-700 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+              className="px-3 py-1.5 bg-slate-900/80 border border-slate-700 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono"
             >
-              <option value="">All Severities</option>
+              <option value="">{isZh ? '所有風險等級' : 'All Severities'}</option>
               <option value="Critical">Critical</option>
               <option value="High">High</option>
               <option value="Medium">Medium</option>
@@ -335,24 +349,24 @@ export default function CollectorManagementView() {
 
         {/* Table */}
         <div className="overflow-x-auto rounded-lg border border-slate-700/60 bg-slate-900/50">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs font-mono">
             <thead>
               <tr className="bg-slate-800/80 text-slate-400 font-semibold border-b border-slate-700/60 uppercase tracking-wider">
-                <th className="p-3">Timestamp</th>
-                <th className="p-3">Collector</th>
-                <th className="p-3">Severity</th>
-                <th className="p-3">Vendor / Product</th>
-                <th className="p-3">Host / Source IP</th>
-                <th className="p-3">Event Type</th>
-                <th className="p-3">Category</th>
-                <th className="p-3 text-right">Inspect</th>
+                <th className="p-3">{isZh ? '時間戳記' : 'Timestamp'}</th>
+                <th className="p-3">{isZh ? '收集器' : 'Collector'}</th>
+                <th className="p-3">{isZh ? '風險等級' : 'Severity'}</th>
+                <th className="p-3">{isZh ? '廠商 / 產品' : 'Vendor / Product'}</th>
+                <th className="p-3">{isZh ? '主機 / 來源 IP' : 'Host / Source IP'}</th>
+                <th className="p-3">{isZh ? '事件類型' : 'Event Type'}</th>
+                <th className="p-3">{isZh ? '分類' : 'Category'}</th>
+                <th className="p-3 text-right">{isZh ? '檢視' : 'Inspect'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 text-slate-300">
               {events.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="p-6 text-center text-slate-500 italic">
-                    No live events matching query. Telemetry stream is active and awaiting incoming packets.
+                    {isZh ? '無符合查詢條件之事件。遙測串流運作中，正在等待新封包…' : 'No live events matching query. Telemetry stream is active and awaiting incoming packets.'}
                   </td>
                 </tr>
               ) : (
@@ -388,7 +402,7 @@ export default function CollectorManagementView() {
                         onClick={() => setSelectedEvent(evt)}
                         className="px-2.5 py-1 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-400 rounded border border-cyan-500/30 text-[11px] font-sans font-medium transition-all"
                       >
-                        Inspect
+                        {isZh ? '檢視詳情' : 'Inspect'}
                       </button>
                     </td>
                   </tr>
@@ -407,7 +421,7 @@ export default function CollectorManagementView() {
               <div className="flex items-center gap-3">
                 <Shield className="w-5 h-5 text-cyan-400" />
                 <h3 className="font-bold text-lg text-slate-100">
-                  Event Inspection [{selectedEvent.id}]
+                  {isZh ? '事件詳情剖析' : 'Event Inspection'} [{selectedEvent.id}]
                 </h3>
               </div>
               <button
@@ -421,7 +435,7 @@ export default function CollectorManagementView() {
             <div className="p-6 overflow-y-auto space-y-4 text-xs font-mono">
               <div>
                 <h4 className="text-slate-400 uppercase tracking-wider font-semibold mb-2 font-sans">
-                  Raw Ingested Event Payload (Sanitized)
+                  {isZh ? '原始注入事件載荷 (Raw Payload)' : 'Raw Ingested Event Payload (Sanitized)'}
                 </h4>
                 <pre className="bg-slate-900 p-4 rounded-lg border border-slate-800 text-slate-300 whitespace-pre-wrap break-all">
                   {selectedEvent.raw}
@@ -430,7 +444,7 @@ export default function CollectorManagementView() {
 
               <div>
                 <h4 className="text-slate-400 uppercase tracking-wider font-semibold mb-2 font-sans">
-                  Normalized Key-Value Fields
+                  {isZh ? '正規化鍵值欄位 (Normalized Fields)' : 'Normalized Key-Value Fields'}
                 </h4>
                 <pre className="bg-slate-900 p-4 rounded-lg border border-slate-800 text-cyan-300 whitespace-pre-wrap">
                   {JSON.stringify(selectedEvent.normalized, null, 2)}
@@ -439,7 +453,7 @@ export default function CollectorManagementView() {
 
               <div>
                 <h4 className="text-slate-400 uppercase tracking-wider font-semibold mb-2 font-sans">
-                  Metadata & Tags
+                  {isZh ? '元數據與標籤 (Metadata & Tags)' : 'Metadata & Tags'}
                 </h4>
                 <pre className="bg-slate-900 p-4 rounded-lg border border-slate-800 text-purple-300 whitespace-pre-wrap">
                   {JSON.stringify(selectedEvent.metadata, null, 2)}
@@ -452,7 +466,7 @@ export default function CollectorManagementView() {
                 onClick={() => setSelectedEvent(null)}
                 className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold font-sans transition-all"
               >
-                Close
+                {isZh ? '關閉' : 'Close'}
               </button>
             </div>
           </div>

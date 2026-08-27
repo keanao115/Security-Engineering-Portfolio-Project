@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Shield, AlertTriangle, CheckCircle, Filter, RefreshCw, Zap, Clock, Activity, Search, PlusCircle, Layers } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { fetchSiemEvents, fetchMultiVectorCorrelation, connectLiveTelemetryStream } from '../services/apiClient';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const SEV_COLORS = { Critical: '#ef4444', High: '#f59e0b', Medium: '#06b6d4', Low: '#10b981', Info: '#64748b' };
 const SEV_BG = { Critical: 'bg-red-500/10 text-red-400 border-red-500/30', High: 'bg-amber-500/10 text-amber-400 border-amber-500/30', Medium: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30', Low: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30', Info: 'bg-slate-800 text-slate-400 border-slate-700' };
@@ -26,11 +27,18 @@ const FALLBACK_EVENTS = [
   { id: 'SIEM-004', timestamp: new Date(Date.now() - 2000).toISOString(), sourceCategory: 'Sysmon', hostName: 'workstation-win11-04', severity: 'High', eventId: 'Sysmon-1', mitreTechnique: 'T1059.001 (PowerShell)', summary: 'Encoded PowerShell command execution with -EncodedCommand parameter.', dedupCount: 1 },
 ];
 
-const SEVERITY_BAR_DATA = [
-  { name: 'Critical', count: 2 }, { name: 'High', count: 4 }, { name: 'Medium', count: 6 }, { name: 'Low', count: 10 }, { name: 'Info', count: 18 },
-];
-
 export default function SiemEventConsole() {
+  const { t, language } = useLanguage();
+  const isZh = language === 'zh-TW';
+
+  const severityBarData = [
+    { name: isZh ? '極高' : 'Critical', count: 2 },
+    { name: isZh ? '高' : 'High', count: 4 },
+    { name: isZh ? '中' : 'Medium', count: 6 },
+    { name: isZh ? '低' : 'Low', count: 10 },
+    { name: isZh ? '資訊' : 'Info', count: 18 },
+  ];
+
   const [events, setEvents] = useState(FALLBACK_EVENTS);
   const [correlation, setCorrelation] = useState(null);
   const [sevFilter, setSevFilter] = useState('ALL');
@@ -39,7 +47,7 @@ export default function SiemEventConsole() {
   const [showIngestModal, setShowIngestModal] = useState(false);
   const [rawLogInput, setRawLogInput] = useState('');
   const [ingestStatus, setIngestStatus] = useState('');
-  const [wsStatus, setWsStatus] = useState('Connecting…');
+  const [wsStatus, setWsStatus] = useState(isZh ? '連線中…' : 'Connecting…');
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const wsRef = useRef(null);
 
@@ -53,18 +61,18 @@ export default function SiemEventConsole() {
           setEvents(prev => [msg.event, ...prev].slice(0, 100));
           setLastUpdate(new Date());
         }
-        if (msg.type === 'HEARTBEAT') { setWsStatus('Live'); setLastUpdate(new Date()); }
+        if (msg.type === 'HEARTBEAT') { setWsStatus(isZh ? '實時串流中' : 'Live'); setLastUpdate(new Date()); }
       },
-      () => setWsStatus('Live'),
-      () => setWsStatus('Demo Mode')
+      () => setWsStatus(isZh ? '實時串流中' : 'Live'),
+      () => setWsStatus(isZh ? '演練模式' : 'Demo Mode')
     );
 
     return () => { if (wsRef.current) wsRef.current.close(); };
-  }, []);
+  }, [isZh]);
 
   const handleBulkIngest = async () => {
     if (!rawLogInput.trim()) return;
-    setIngestStatus('Ingesting and normalizing…');
+    setIngestStatus(isZh ? '正在注入與正規化日誌…' : 'Ingesting and normalizing…');
 
     try {
       const lines = rawLogInput.split('\n').filter(l => l.trim());
@@ -83,14 +91,14 @@ export default function SiemEventConsole() {
       });
 
       if (res.ok) {
-        setIngestStatus(`Ingested ${lines.length} events!`);
+        setIngestStatus(isZh ? `成功注入 ${lines.length} 條日誌事件！` : `Ingested ${lines.length} events!`);
         fetchSiemEvents().then(d => { if (d?.events) setEvents(d.events); });
         setTimeout(() => { setShowIngestModal(false); setIngestStatus(''); setRawLogInput(''); }, 1500);
       } else {
-        setIngestStatus('Ingest failed');
+        setIngestStatus(isZh ? '注入失敗' : 'Ingest failed');
       }
     } catch (e) {
-      setIngestStatus('Error connecting to backend');
+      setIngestStatus(isZh ? '連線後端錯誤' : 'Error connecting to backend');
     }
   };
 
@@ -110,10 +118,12 @@ export default function SiemEventConsole() {
         <div>
           <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
             <Shield className="w-6 h-6 text-cyan-400" />
-            SIEM Event Console
+            {t('sidebar.siemEvents', 'SIEM Event Console')}
           </h2>
           <p className="text-xs text-slate-400 font-mono mt-1">
-            Centralized enterprise log aggregation — WEF, Sysmon, Auditd, Zeek, Wazuh, CloudTrail, Suricata, Defender.
+            {isZh
+              ? '集中式企業日誌聚合中心 — 整合 WEF, Sysmon, Auditd, Zeek, Wazuh, CloudTrail, Suricata, Defender。'
+              : 'Centralized enterprise log aggregation — WEF, Sysmon, Auditd, Zeek, Wazuh, CloudTrail, Suricata, Defender.'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -121,10 +131,10 @@ export default function SiemEventConsole() {
             onClick={() => setShowIngestModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-mono text-xs font-bold transition-all shadow-md"
           >
-            <PlusCircle className="w-4 h-4" /> Ingest Raw Logs
+            <PlusCircle className="w-4 h-4" /> {isZh ? '注入原始日誌' : 'Ingest Raw Logs'}
           </button>
-          <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold border ${wsStatus === 'Live' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'}`}>
-            <span className={`w-2 h-2 rounded-full ${wsStatus === 'Live' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+          <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold border ${wsStatus.includes('Live') || wsStatus.includes('實時') ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'}`}>
+            <span className={`w-2 h-2 rounded-full ${wsStatus.includes('Live') || wsStatus.includes('實時') ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
             {wsStatus}
           </span>
         </div>
@@ -133,10 +143,10 @@ export default function SiemEventConsole() {
       {/* KPI Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Total Events', value: events.length, color: 'cyan', icon: <Activity className="w-4 h-4" /> },
-          { label: 'Critical', value: criticalCount, color: 'red', icon: <AlertTriangle className="w-4 h-4" /> },
-          { label: 'High', value: highCount, color: 'amber', icon: <Zap className="w-4 h-4" /> },
-          { label: 'Composite Risk', value: correlation?.compositeRiskScore ?? '—', color: 'purple', icon: <Shield className="w-4 h-4" />, suffix: '/100' },
+          { label: isZh ? '日誌事件總數' : 'Total Events', value: events.length, color: 'cyan', icon: <Activity className="w-4 h-4" /> },
+          { label: isZh ? '極高風險 (Critical)' : 'Critical', value: criticalCount, color: 'red', icon: <AlertTriangle className="w-4 h-4" /> },
+          { label: isZh ? '高風險 (High)' : 'High', value: highCount, color: 'amber', icon: <Zap className="w-4 h-4" /> },
+          { label: isZh ? '綜合威脅評分' : 'Composite Risk', value: correlation?.compositeRiskScore ?? '—', color: 'purple', icon: <Shield className="w-4 h-4" />, suffix: '/100' },
         ].map((kpi, i) => (
           <div key={i} className={`glass-panel p-4 rounded-2xl border ${kpi.color === 'red' && kpi.value > 0 ? 'border-red-500/30' : 'border-slate-800'} flex items-center gap-3`}>
             <div className={`p-2.5 rounded-xl bg-${kpi.color}-500/10 text-${kpi.color}-400`}>{kpi.icon}</div>
@@ -154,7 +164,7 @@ export default function SiemEventConsole() {
       {correlation?.timeline?.length > 0 && (
         <div className="glass-panel p-5 rounded-2xl space-y-3">
           <h3 className="font-bold text-sm text-cyan-300 flex items-center gap-2">
-            <Layers className="w-4 h-4" /> Dynamic Multi-Stage Incident Timeline
+            <Layers className="w-4 h-4" /> {isZh ? '動態多階段攻擊事件時間軸' : 'Dynamic Multi-Stage Incident Timeline'}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {correlation.timeline.map((step, idx) => (
@@ -166,7 +176,7 @@ export default function SiemEventConsole() {
                 <div className="font-bold text-white text-xs line-clamp-2">{step.headline}</div>
                 <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1">
                   <span>MITRE: {step.mitreId}</span>
-                  <span className="text-cyan-400 font-bold">{step.confidenceScore}% Conf</span>
+                  <span className="text-cyan-400 font-bold">{step.confidenceScore}% {isZh ? '信賴度' : 'Conf'}</span>
                 </div>
               </div>
             ))}
@@ -179,10 +189,10 @@ export default function SiemEventConsole() {
         {/* Severity Distribution Chart */}
         <div className="glass-panel p-5 rounded-2xl">
           <h3 className="font-bold text-sm text-slate-200 mb-4 flex items-center gap-2">
-            <Zap className="w-4 h-4 text-amber-400" /> Alert Severity Distribution
+            <Zap className="w-4 h-4 text-amber-400" /> {isZh ? '告警風險等級分佈' : 'Alert Severity Distribution'}
           </h3>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={SEVERITY_BAR_DATA}>
+            <BarChart data={severityBarData}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
               <XAxis dataKey="name" stroke="#64748b" fontSize={10} />
               <YAxis stroke="#64748b" fontSize={10} />
@@ -195,7 +205,7 @@ export default function SiemEventConsole() {
         {/* AI Multi-Vector Correlation */}
         <div className="lg:col-span-2 glass-panel p-5 rounded-2xl space-y-3">
           <h3 className="font-bold text-sm text-slate-200 flex items-center gap-2">
-            <Shield className="w-4 h-4 text-purple-400" /> AI Multi-Vector Correlation Engine
+            <Shield className="w-4 h-4 text-purple-400" /> {isZh ? 'AI 多維向量關聯引擎' : 'AI Multi-Vector Correlation Engine'}
           </h3>
           {correlation ? (
             <>
@@ -209,10 +219,10 @@ export default function SiemEventConsole() {
               </div>
               <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-mono">
                 {[
-                  { label: 'Endpoint', val: correlation.correlatedVectors?.endpointCount },
-                  { label: 'Network Flows', val: correlation.correlatedVectors?.networkFlowCount },
-                  { label: 'Vulns', val: correlation.correlatedVectors?.vulnerabilityCount },
-                  { label: 'SIEM Events', val: correlation.correlatedVectors?.siemEventCount },
+                  { label: isZh ? '端點主機' : 'Endpoint', val: correlation.correlatedVectors?.endpointCount },
+                  { label: isZh ? '網路流量' : 'Network Flows', val: correlation.correlatedVectors?.networkFlowCount },
+                  { label: isZh ? '弱點數量' : 'Vulns', val: correlation.correlatedVectors?.vulnerabilityCount },
+                  { label: isZh ? 'SIEM 事件' : 'SIEM Events', val: correlation.correlatedVectors?.siemEventCount },
                 ].map((v, i) => (
                   <div key={i} className="bg-slate-950 rounded-lg p-2 border border-slate-900">
                     <div className="font-bold text-cyan-400 text-sm">{v.val}</div>
@@ -221,7 +231,9 @@ export default function SiemEventConsole() {
                 ))}
               </div>
               <div className="space-y-1.5 pt-1">
-                <div className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">SOC Analyst Playbook</div>
+                <div className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
+                  {isZh ? 'SOC 分析師處置建議' : 'SOC Analyst Playbook'}
+                </div>
                 {(correlation.socAnalystPlaybook || []).map((step, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs text-slate-300 font-mono">
                     <CheckCircle className="w-3.5 h-3.5 text-cyan-500 shrink-0 mt-0.5" />
@@ -231,7 +243,9 @@ export default function SiemEventConsole() {
               </div>
             </>
           ) : (
-            <div className="text-xs text-slate-500 font-mono">Loading AI correlation engine…</div>
+            <div className="text-xs text-slate-500 font-mono">
+              {isZh ? '正在載入 AI 關聯分析引擎…' : 'Loading AI correlation engine…'}
+            </div>
           )}
         </div>
       </div>
@@ -243,23 +257,25 @@ export default function SiemEventConsole() {
             type="text"
             value={hostSearch}
             onChange={e => setHostSearch(e.target.value)}
-            placeholder="Search host or summary..."
-            className="bg-slate-950 border border-slate-800 text-slate-300 text-xs font-mono rounded-lg px-3 py-1 focus:outline-none focus:border-cyan-500 w-44"
+            placeholder={isZh ? "搜尋主機名稱或日誌摘要..." : "Search host or summary..."}
+            className="bg-slate-950 border border-slate-800 text-slate-300 text-xs font-mono rounded-lg px-3 py-1 focus:outline-none focus:border-cyan-500 w-48"
           />
-          <span className="text-xs font-mono text-slate-400 flex items-center gap-1"><Filter className="w-3.5 h-3.5" /> Severity:</span>
+          <span className="text-xs font-mono text-slate-400 flex items-center gap-1">
+            <Filter className="w-3.5 h-3.5" /> {isZh ? '風險等級:' : 'Severity:'}
+          </span>
           {['ALL', 'Critical', 'High', 'Medium', 'Low'].map(s => (
             <button key={s} onClick={() => setSevFilter(s)}
               className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition-all ${sevFilter === s ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white'}`}>
-              {s}
+              {s === 'ALL' ? t('common.all', 'ALL') : s}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-mono text-slate-400">Source:</span>
+          <span className="text-xs font-mono text-slate-400">{isZh ? '日誌來源:' : 'Source:'}</span>
           {['ALL', 'Windows_WEF', 'Sysmon', 'Linux_Auditd', 'Zeek', 'Wazuh', 'Suricata'].map(c => (
             <button key={c} onClick={() => setCatFilter(c)}
               className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition-all ${catFilter === c ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white'}`}>
-              {c === 'ALL' ? 'ALL' : c.replace('_', ' ')}
+              {c === 'ALL' ? t('common.all', 'ALL') : c.replace('_', ' ')}
             </button>
           ))}
         </div>
@@ -270,8 +286,12 @@ export default function SiemEventConsole() {
         {allFiltered.length === 0 ? (
           <div className="glass-panel p-8 text-center rounded-2xl border border-slate-800">
             <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto mb-3" />
-            <p className="text-sm font-bold text-white">No Events Match Active Filters</p>
-            <p className="text-xs text-slate-400 font-mono mt-1">All telemetry sources are within operational baseline.</p>
+            <p className="text-sm font-bold text-white">
+              {isZh ? '無符合目前篩選條件之日誌事件' : 'No Events Match Active Filters'}
+            </p>
+            <p className="text-xs text-slate-400 font-mono mt-1">
+              {isZh ? '所有遙測資料來源均處於正常運維基線內。' : 'All telemetry sources are within operational baseline.'}
+            </p>
           </div>
         ) : allFiltered.map((event, i) => (
           <div key={i} className={`glass-panel p-4 rounded-2xl border transition-all hover:border-cyan-500/20 ${event.severity === 'Critical' ? 'border-red-500/30' : event.severity === 'High' ? 'border-amber-500/30' : 'border-slate-800'}`}>
@@ -284,7 +304,9 @@ export default function SiemEventConsole() {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 {event.dedupCount > 1 && (
-                  <span className="px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/30 text-purple-400 text-[10px] font-mono font-bold">×{event.dedupCount} deduplicated</span>
+                  <span className="px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/30 text-purple-400 text-[10px] font-mono font-bold">
+                    ×{event.dedupCount} {isZh ? '筆重複聚合' : 'deduplicated'}
+                  </span>
                 )}
                 <span className="text-[10px] font-mono text-slate-500 flex items-center gap-1">
                   <Clock className="w-3 h-3" /> {new Date(event.timestamp).toLocaleTimeString()}
@@ -304,22 +326,24 @@ export default function SiemEventConsole() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
           <div className="glass-panel p-6 rounded-2xl max-w-xl w-full border border-cyan-500/30 space-y-4 shadow-2xl">
             <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <PlusCircle className="w-5 h-5 text-cyan-400" /> Ingest Raw Log Lines
+              <PlusCircle className="w-5 h-5 text-cyan-400" /> {isZh ? '注入原始日誌資料行' : 'Ingest Raw Log Lines'}
             </h3>
             <p className="text-xs text-slate-400 font-mono">
-              Paste raw syslog / WEF lines below. The backend normalization pipeline will extract IPs, severity, and MITRE ATT&CK techniques automatically.
+              {isZh
+                ? '請在下方貼上原始 Syslog / WEF 日誌行。後端正規化管線將自動擷取 IP、風險等級與對齊 MITRE ATT&CK 戰術手法。'
+                : 'Paste raw syslog / WEF lines below. The backend normalization pipeline will extract IPs, severity, and MITRE ATT&CK techniques automatically.'}
             </p>
             <textarea
               rows={6}
               value={rawLogInput}
               onChange={e => setRawLogInput(e.target.value)}
-              placeholder="Paste raw log lines here..."
+              placeholder={isZh ? "在此貼上原始日誌行..." : "Paste raw log lines here..."}
               className="w-full bg-slate-950 border border-slate-800 text-xs font-mono text-cyan-300 p-3 rounded-xl focus:outline-none focus:border-cyan-500"
             />
             {ingestStatus && <div className="text-xs font-mono text-cyan-400">{ingestStatus}</div>}
             <div className="flex justify-end gap-2">
-              <button onClick={() => setShowIngestModal(false)} className="px-4 py-2 rounded-xl bg-slate-900 text-xs font-mono text-slate-400">Cancel</button>
-              <button onClick={handleBulkIngest} className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-xs font-mono font-bold text-slate-950">Ingest & Correlate</button>
+              <button onClick={() => setShowIngestModal(false)} className="px-4 py-2 rounded-xl bg-slate-900 text-xs font-mono text-slate-400">{isZh ? '取消' : 'Cancel'}</button>
+              <button onClick={handleBulkIngest} className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-xs font-mono font-bold text-slate-950">{isZh ? '注入並執行關聯分析' : 'Ingest & Correlate'}</button>
             </div>
           </div>
         </div>

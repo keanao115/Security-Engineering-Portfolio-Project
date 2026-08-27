@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { BookOpen, Search, Bookmark, ExternalLink } from 'lucide-react';
 import { searchRagKnowledge } from '../utils/ragDatabase';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function RagKnowledgeView() {
+  const { t, language } = useLanguage();
   const [query, setQuery] = useState('');
-  const results = searchRagKnowledge(query);
+  const results = searchRagKnowledge(query, language);
 
   return (
     <div className="space-y-6">
@@ -13,10 +15,10 @@ export default function RagKnowledgeView() {
         <div>
           <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
             <BookOpen className="w-6 h-6 text-cyan-400" />
-            RAG Security Knowledge Base (NIST / OWASP / MITRE)
+            {t('rag.title', 'RAG Security Knowledge Base (NIST / OWASP / MITRE)')}
           </h2>
           <p className="text-xs text-slate-400 font-mono mt-1">
-            Search embedded cyber security knowledge base prioritized by AI analysis.
+            {t('rag.subtitle', 'Search embedded cyber security knowledge base prioritized by AI analysis.')}
           </p>
         </div>
       </div>
@@ -27,7 +29,7 @@ export default function RagKnowledgeView() {
           <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
           <input
             type="text"
-            placeholder="Search NIST 800-61, OWASP Top 10, Windows Event ID (e.g. 4625), MITRE T1059..."
+            placeholder={t('rag.searchPlaceholder', 'Search NIST 800-61, OWASP Top 10, Windows Event ID (e.g. 4625), MITRE T1059...')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:border-cyan-500 w-full font-mono"
