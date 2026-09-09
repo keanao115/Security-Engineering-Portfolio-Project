@@ -277,9 +277,23 @@ export const enUS = {
   },
 
   apiKeyModal: {
-    title: "Configure AI API Key",
-    description: "Enter your Google Gemini or OpenAI API Key to enable online contextual threat intelligence reasoning. If omitted, CyberMind AI operates using its built-in offline security rules engine.",
-    placeholder: "AIzaSy... / sk-...",
-    saveAndClose: "Save & Close"
+    title: "CyberMind AI Model & API Configuration Hub",
+    subtitle: "Real SOC telemetry analysis powered by your specified AI API model; automatically falls back to Local Model when no API is provided.",
+    description: "CyberMind AI Security Copilot performs authentic telemetry analysis against live SIEM logs, open ports, and NVD vulnerabilities using your chosen AI API (Google Gemini, OpenAI, or compatible endpoints). If no API key is provided, the system executes real telemetry analysis locally via Ollama or the embedded deterministic SOC inference engine.",
+    providerLabel: "AI Provider & Architecture",
+    providerGemini: "Google Gemini API",
+    providerOpenAi: "OpenAI / Compatible API (DeepSeek / Groq)",
+    providerLocal: "Local Model (Zero Egress / On-Premise Inference)",
+    modelLabel: "AI Model Name",
+    apiKeyLabel: "API Key",
+    baseUrlLabel: "Custom API Base URL",
+    localModelHint: "When no API key is provided, CyberMind directly uses local Ollama (localhost:11434) or the embedded SOC Telemetry Inference Engine to correlate all live SIEM events, open ports, and CVEs.",
+    testConnection: "Test Connection",
+    testing: "Testing...",
+    saveAndClose: "Save & Apply Configuration",
+    clearToLocal: "Clear Key & Use Local Model",
+    statusConnected: "Connected Successfully",
+    statusFailed: "Connection Failed",
+    telemetryActive: "Real SOC Telemetry Sources Mounted"
   }
 };

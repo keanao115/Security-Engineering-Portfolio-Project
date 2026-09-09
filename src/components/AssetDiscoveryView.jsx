@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Server, Shield, CheckCircle, AlertTriangle, Lock, Play, Network, Tag, Cpu, Clock, Calendar, ChevronDown, ChevronUp, Wifi } from 'lucide-react';
-import { fetchDiscoveryScope, runAssetDiscoverySweep, fetchAssetInventory } from '../services/apiClient';
+import { fetchDiscoveryScope, runAssetDiscoverySweep, fetchAssetInventory, authFetch } from '../services/apiClient';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const OS_ICON_COLOR = (os) => {
@@ -36,7 +36,7 @@ export default function AssetDiscoveryView() {
   useEffect(() => {
     fetchDiscoveryScope().then(s => { if (s) setScope(s); });
     fetchAssetInventory().then(inv => { if (inv?.assets?.length > 0) setAssets(inv.assets); });
-    fetch('/api/discovery/jobs').then(r => r.json()).then(d => {
+    authFetch('/api/discovery/jobs').then(r => r.json()).then(d => {
       if (d?.jobs) setScheduledJobs(d.jobs);
     }).catch(() => {});
   }, []);
@@ -44,7 +44,7 @@ export default function AssetDiscoveryView() {
   const handleRealLocalScan = async () => {
     setIsRealScanning(true);
     try {
-      const res = await fetch('/api/discovery/localhost');
+      const res = await authFetch('/api/discovery/localhost');
       const data = await res.json();
       setRealDiscovery(data);
     } catch (err) {
@@ -73,7 +73,7 @@ export default function AssetDiscoveryView() {
 
   const handleScheduleJob = async () => {
     try {
-      const res = await fetch('/api/discovery/jobs/schedule', {
+      const res = await authFetch('/api/discovery/jobs/schedule', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetCidr: newCidr, intervalMin: parseInt(scheduleInterval, 10), scanSpeed: scope.scanSpeed })

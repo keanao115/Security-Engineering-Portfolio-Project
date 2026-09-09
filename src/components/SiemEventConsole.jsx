@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Shield, AlertTriangle, CheckCircle, Filter, RefreshCw, Zap, Clock, Activity, Search, PlusCircle, Layers } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { fetchSiemEvents, fetchMultiVectorCorrelation, connectLiveTelemetryStream } from '../services/apiClient';
+import { fetchSiemEvents, fetchMultiVectorCorrelation, connectLiveTelemetryStream, authFetch } from '../services/apiClient';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const SEV_COLORS = { Critical: '#ef4444', High: '#f59e0b', Medium: '#06b6d4', Low: '#10b981', Info: '#64748b' };
@@ -84,7 +84,7 @@ export default function SiemEventConsole() {
         summary: line
       }));
 
-      const res = await fetch('/api/siem/ingest/bulk', {
+      const res = await authFetch('/api/siem/ingest/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ events: payloadEvents })

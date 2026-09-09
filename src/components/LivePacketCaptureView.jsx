@@ -3,6 +3,7 @@ import { Radio, Play, Square, Activity, Filter, ShieldCheck, Cpu } from 'lucide-
 import TelemetrySourceBadge from './TelemetrySourceBadge';
 import LiveEmptyState from './LiveEmptyState';
 import { useLanguage } from '../contexts/LanguageContext';
+import { authFetch } from '../services/apiClient';
 
 export default function LivePacketCaptureView() {
   const { t, language } = useLanguage();
@@ -16,7 +17,7 @@ export default function LivePacketCaptureView() {
 
   const fetchCaptureStatus = async () => {
     try {
-      const resIf = await fetch('/api/capture/interfaces');
+      const resIf = await authFetch('/api/capture/interfaces');
       if (resIf.ok) {
         const data = await resIf.json();
         setInterfaces(data.interfaces || []);
@@ -25,7 +26,7 @@ export default function LivePacketCaptureView() {
         }
       }
 
-      const resSt = await fetch('/api/capture/status');
+      const resSt = await authFetch('/api/capture/status');
       if (resSt.ok) {
         const data = await resSt.json();
         setActiveSession(data.activeSession);
@@ -45,7 +46,7 @@ export default function LivePacketCaptureView() {
     if (!selectedIface) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/capture/start', {
+      const res = await authFetch('/api/capture/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ interfaceId: selectedIface, bpfFilter }),
@@ -61,7 +62,7 @@ export default function LivePacketCaptureView() {
   const handleStop = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/capture/stop', { method: 'POST' });
+      const res = await authFetch('/api/capture/stop', { method: 'POST' });
       if (res.ok) {
         await fetchCaptureStatus();
       }

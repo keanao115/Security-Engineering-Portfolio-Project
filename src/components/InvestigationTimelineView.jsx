@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Clock, ShieldAlert, Layers } from 'lucide-react';
 import TelemetrySourceBadge from './TelemetrySourceBadge';
 import { useLanguage } from '../contexts/LanguageContext';
+import { authFetch } from '../services/apiClient';
 
 export default function InvestigationTimelineView() {
   const { t, language } = useLanguage();
@@ -12,10 +13,10 @@ export default function InvestigationTimelineView() {
 
   const fetchData = async () => {
     try {
-      const resT = await fetch('/api/investigation/timeline');
+      const resT = await authFetch('/api/investigation/timeline');
       if (resT.ok) setTimeline((await resT.json()).timeline || []);
 
-      const resB = await fetch('/api/investigation/evidence-bundles');
+      const resB = await authFetch('/api/investigation/evidence-bundles');
       if (resB.ok) setBundles((await resB.json()).bundles || []);
     } catch (err) {
       console.warn('[InvestigationTimelineView] Fetch failed:', err);

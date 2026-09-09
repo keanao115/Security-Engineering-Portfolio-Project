@@ -277,9 +277,23 @@ export const zhTW = {
   },
 
   apiKeyModal: {
-    title: "配置 AI API 密鑰",
-    description: "請輸入您的 Google Gemini 或 OpenAI API Key 以啟用深度雲端威脅情資推理。若未填寫，系統將自動以內建的高速離線資安規則引擎運行。",
-    placeholder: "AIzaSy... / sk-...",
-    saveAndClose: "儲存並關閉"
+    title: "CyberMind AI 模型與 API 設定中心",
+    subtitle: "由您指定之 AI 模型進行全系統真實數據分析；未提供 API 時自動切換為本地模型進行真實數據分析。",
+    description: "CyberMind AI 智慧資安助手 (Security Copilot) 支援以您自訂之 API 模型（Google Gemini、OpenAI 或相容端點）對當前 SIEM 事件、開放端口、CVE 弱點進行真實數據分析。當未提供任何 API 金鑰時，系統將使用本地模型（本機 Ollama 或 CyberMind 嵌入式 SOC 遙測推論引擎）進行深度分析。",
+    providerLabel: "AI 服務提供商與架構",
+    providerGemini: "Google Gemini API",
+    providerOpenAi: "OpenAI / 相容 API (DeepSeek / Groq)",
+    providerLocal: "本地模型 (Local Model - 零外洩 / 本地推論)",
+    modelLabel: "AI 模型名稱 (Model Name)",
+    apiKeyLabel: "API 金鑰 (API Key)",
+    baseUrlLabel: "API 自訂端點 (Base URL)",
+    localModelHint: "未提供 API 時，CyberMind 將直接調用本機 Ollama (localhost:11434) 或嵌入式 SOC 遙測真實數據推論引擎，即時關聯當前所有 SIEM 事件、NVD 漏洞與連接埠。",
+    testConnection: "測試連線",
+    testing: "測試連線中...",
+    saveAndClose: "儲存並套用設定",
+    clearToLocal: "清除金鑰並切換為本地模型",
+    statusConnected: "連線成功",
+    statusFailed: "連線失敗",
+    telemetryActive: "全系統真實數據源已掛載"
   }
 };

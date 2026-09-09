@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express';
 import { BaseCollector } from '../collectors/baseCollector.js';
 import { WefCollectorService } from '../collectors/wefCollectorService.js';
 import { memoryDb } from '../db/client.js';
+import { requireRole } from '../middleware/auth.js';
 
 export function createCollectorRouter(collectors: BaseCollector[]): Router {
   const router = Router();
@@ -87,8 +88,8 @@ export function createCollectorRouter(collectors: BaseCollector[]): Router {
     });
   });
 
-  // POST /api/collectors/:name/start — Lifecycle Start
-  router.post('/:name/start', async (req: Request, res: Response) => {
+  // POST /api/collectors/:name/start — Lifecycle Start (Admin Only)
+  router.post('/:name/start', requireRole(['Admin']), async (req: Request, res: Response) => {
     const collector = collectorMap.get(req.params.name.toLowerCase());
     if (!collector) return res.status(404).json({ error: `Collector "${req.params.name}" not found` });
 
@@ -100,8 +101,8 @@ export function createCollectorRouter(collectors: BaseCollector[]): Router {
     }
   });
 
-  // POST /api/collectors/:name/pause — Lifecycle Pause
-  router.post('/:name/pause', async (req: Request, res: Response) => {
+  // POST /api/collectors/:name/pause — Lifecycle Pause (Admin Only)
+  router.post('/:name/pause', requireRole(['Admin']), async (req: Request, res: Response) => {
     const collector = collectorMap.get(req.params.name.toLowerCase());
     if (!collector) return res.status(404).json({ error: `Collector "${req.params.name}" not found` });
 
@@ -109,8 +110,8 @@ export function createCollectorRouter(collectors: BaseCollector[]): Router {
     return res.json({ message: `Collector ${collector.name} paused`, health: collector.getHealth() });
   });
 
-  // POST /api/collectors/:name/resume — Lifecycle Resume
-  router.post('/:name/resume', async (req: Request, res: Response) => {
+  // POST /api/collectors/:name/resume — Lifecycle Resume (Admin Only)
+  router.post('/:name/resume', requireRole(['Admin']), async (req: Request, res: Response) => {
     const collector = collectorMap.get(req.params.name.toLowerCase());
     if (!collector) return res.status(404).json({ error: `Collector "${req.params.name}" not found` });
 
@@ -118,8 +119,8 @@ export function createCollectorRouter(collectors: BaseCollector[]): Router {
     return res.json({ message: `Collector ${collector.name} resumed`, health: collector.getHealth() });
   });
 
-  // POST /api/collectors/:name/stop — Lifecycle Stop
-  router.post('/:name/stop', async (req: Request, res: Response) => {
+  // POST /api/collectors/:name/stop — Lifecycle Stop (Admin Only)
+  router.post('/:name/stop', requireRole(['Admin']), async (req: Request, res: Response) => {
     const collector = collectorMap.get(req.params.name.toLowerCase());
     if (!collector) return res.status(404).json({ error: `Collector "${req.params.name}" not found` });
 
@@ -127,8 +128,8 @@ export function createCollectorRouter(collectors: BaseCollector[]): Router {
     return res.json({ message: `Collector ${collector.name} stopped`, health: collector.getHealth() });
   });
 
-  // POST /api/collectors/:name/restart — Lifecycle Restart
-  router.post('/:name/restart', async (req: Request, res: Response) => {
+  // POST /api/collectors/:name/restart — Lifecycle Restart (Admin Only)
+  router.post('/:name/restart', requireRole(['Admin']), async (req: Request, res: Response) => {
     const collector = collectorMap.get(req.params.name.toLowerCase());
     if (!collector) return res.status(404).json({ error: `Collector "${req.params.name}" not found` });
 

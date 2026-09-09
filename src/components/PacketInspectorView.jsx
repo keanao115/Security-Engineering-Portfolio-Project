@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Upload, ShieldAlert, Globe, Lock, FileText, AlertTriangle, CheckCircle, Download, Network, Share2 } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { fetchPcapSample } from '../services/apiClient';
+import { fetchPcapSample, authFetch } from '../services/apiClient';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const SEVERITY_COLOR = { Critical: '#ef4444', High: '#f59e0b', Medium: '#06b6d4', Low: '#10b981' };
@@ -9,7 +9,7 @@ const SEVERITY_COLOR = { Critical: '#ef4444', High: '#f59e0b', Medium: '#06b6d4'
 async function uploadRealPcapFile(file) {
   const formData = new FormData();
   formData.append('pcapFile', file);
-  const res = await fetch('/api/packets/upload', { method: 'POST', body: formData });
+  const res = await authFetch('/api/packets/upload', { method: 'POST', body: formData });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `Upload failed: ${res.status}`);
   return data.summary;

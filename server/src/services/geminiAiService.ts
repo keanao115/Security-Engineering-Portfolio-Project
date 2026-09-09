@@ -27,6 +27,13 @@ You NEVER assist with:
 - Unauthorized access or credential theft
 - Any illegal activity
 
+LANGUAGE MATCHING REQUIREMENT (MANDATORY):
+- You MUST ALWAYS respond in the EXACT SAME LANGUAGE that the user used in their latest message.
+- If the user asks in Chinese (Traditional or Simplified), you MUST respond in fluent, professional Traditional Chinese (繁體中文).
+- If the user asks in English, you MUST respond in fluent, professional English.
+- NEVER respond in English when the user asks in Chinese, and NEVER respond in Chinese when the user asks in English.
+- Standard security identifiers and code snippets (e.g. CVE-2021-44228, Event ID 4625, MITRE T1110.001, PowerShell scripts) may retain technical English syntax.
+
 Format responses with clear sections using markdown. Always reference MITRE ATT&CK techniques (T####.###) when applicable. Be concise but thorough.`;
 
 const SAFETY_SETTINGS = [
@@ -41,90 +48,316 @@ export interface ChatMessage {
   parts: string;
 }
 
-export interface ThreatAnalysisContext {
-  logs?: any[];
-  findings?: any[];
-  scan?: any;
-  siemEvents?: any[];
-  networkFlows?: any[];
-  evidenceBundle?: any;
+import {
+  runLocalSocInference,
+  runLocalTelemetryAssessment,
+  isChineseText,
+  ThreatAnalysisContext,
+  StructuredTelemetryAssessment
+} from './localInferenceEngine.js';
+
+export { ThreatAnalysisContext, isChineseText };
+
+export interface UserAiConfig {
+  provider?: 'gemini' | 'openai' | 'custom' | 'local';
+  model?: string;
+  apiKey?: string;
+  baseUrl?: string;
 }
 
 let genAI: GoogleGenerativeAI | null = null;
 
-function getGenAI(): GoogleGenerativeAI | null {
+function getGenAI(customApiKey?: string): GoogleGenerativeAI | null {
+  const key = (customApiKey && customApiKey.trim()) || process.env.GEMINI_API_KEY;
+  if (!key) return null;
+  if (customApiKey && customApiKey.trim()) {
+    return new GoogleGenerativeAI(customApiKey.trim());
+  }
   if (!genAI) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return null;
-    genAI = new GoogleGenerativeAI(apiKey);
+    genAI = new GoogleGenerativeAI(key);
   }
   return genAI;
+}
+
+async function callOpenAiCompatible(
+  config: UserAiConfig,
+  history: ChatMessage[],
+  fullMessage: string
+): Promise<string> {
+  let baseUrl = (config.baseUrl && config.baseUrl.trim()) || 'https://api.openai.com/v1';
+  if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
+  const endpoint = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`;
+
+  const model = (config.model && config.model.trim()) || (config.provider === 'custom' ? 'llama3.2' : 'gpt-4o-mini');
+
+  const messages = [
+    { role: 'system', content: SOC_SYSTEM_PROMPT },
+    ...history.map(h => ({
+      role: h.role === 'model' ? 'assistant' : 'user',
+      content: h.parts
+    })),
+    { role: 'user', content: fullMessage }
+  ];
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+  if (config.apiKey && config.apiKey.trim()) {
+    headers['Authorization'] = `Bearer ${config.apiKey.trim()}`;
+  }
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      model,
+      messages,
+      temperature: 0.2
+    }),
+    signal: AbortSignal.timeout(30000)
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`OpenAI API (${endpoint}) returned HTTP ${res.status}: ${errText.slice(0, 200)}`);
+  }
+
+  const data: any = await res.json();
+  const reply = data.choices?.[0]?.message?.content;
+  if (!reply) throw new Error('No reply text returned from OpenAI-compatible API');
+  return reply;
+}
+
+async function tryLocalOllama(
+  history: ChatMessage[],
+  fullMessage: string,
+  modelName: string = 'llama3.2'
+): Promise<string | null> {
+  try {
+    const res = await fetch('http://localhost:11434/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: modelName,
+        messages: [
+          { role: 'system', content: SOC_SYSTEM_PROMPT },
+          ...history.map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.parts })),
+          { role: 'user', content: fullMessage }
+        ],
+        temperature: 0.2
+      }),
+      signal: AbortSignal.timeout(3000)
+    });
+    if (res.ok) {
+      const data: any = await res.json();
+      return data.choices?.[0]?.message?.content || null;
+    }
+  } catch {
+    // Local Ollama server is not running or timed out
+  }
+  return null;
+}
+
+export async function testAiConnection(config: UserAiConfig): Promise<{
+  success: boolean;
+  latencyMs?: number;
+  message: string;
+  model?: string;
+  provider: string;
+}> {
+  const start = Date.now();
+  const provider = config.provider || (config.apiKey?.startsWith('AIza') ? 'gemini' : config.apiKey?.startsWith('sk-') ? 'openai' : 'local');
+
+  if (provider === 'local') {
+    try {
+      const res = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(2000) });
+      if (res.ok) {
+        const data: any = await res.json();
+        const models = (data.models || []).map((m: any) => m.name).join(', ') || 'ollama';
+        return {
+          success: true,
+          latencyMs: Date.now() - start,
+          message: `本機 Ollama 服務在線！可用模型: ${models}`,
+          model: models,
+          provider: 'local_ollama'
+        };
+      }
+    } catch {}
+    return {
+      success: true,
+      latencyMs: Date.now() - start,
+      message: 'CyberMind 嵌入式本地真實數據推論引擎就緒（無外部依賴，即時解析全系統真實數據）',
+      model: 'Embedded SOC Inference Engine',
+      provider: 'local_engine'
+    };
+  }
+
+  if (provider === 'gemini') {
+    const key = config.apiKey?.trim() || process.env.GEMINI_API_KEY;
+    if (!key) {
+      return { success: false, message: '未配置 Gemini API Key', provider: 'gemini' };
+    }
+    try {
+      const testClient = new GoogleGenerativeAI(key);
+      const model = testClient.getGenerativeModel({ model: config.model || 'gemini-1.5-flash' });
+      await model.generateContent('ping');
+      return {
+        success: true,
+        latencyMs: Date.now() - start,
+        message: `Google Gemini 連線成功！模型: ${config.model || 'gemini-1.5-flash'}`,
+        model: config.model || 'gemini-1.5-flash',
+        provider: 'gemini'
+      };
+    } catch (err: any) {
+      return { success: false, message: `Gemini 連線失敗: ${err.message}`, provider: 'gemini' };
+    }
+  }
+
+  if (provider === 'openai' || provider === 'custom') {
+    let baseUrl = (config.baseUrl && config.baseUrl.trim()) || 'https://api.openai.com/v1';
+    if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
+    const endpoint = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`;
+    const model = (config.model && config.model.trim()) || 'gpt-4o-mini';
+
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey.trim()}`;
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: 'hi' }],
+          max_tokens: 5
+        }),
+        signal: AbortSignal.timeout(10000)
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        return { success: false, message: `API 端點回傳錯誤 HTTP ${res.status}: ${txt.slice(0, 150)}`, provider };
+      }
+      return {
+        success: true,
+        latencyMs: Date.now() - start,
+        message: `${provider.toUpperCase()} 連線成功！模型: ${model}`,
+        model,
+        provider
+      };
+    } catch (err: any) {
+      return { success: false, message: `連線失敗: ${err.message}`, provider };
+    }
+  }
+
+  return { success: false, message: '未知的供應商配置', provider: 'unknown' };
 }
 
 export async function chatWithSocCopilot(
   history: ChatMessage[],
   userMessage: string,
-  context?: ThreatAnalysisContext
+  context?: ThreatAnalysisContext,
+  aiConfigParam?: UserAiConfig | string
 ): Promise<string> {
-  const client = getGenAI();
+  const config: UserAiConfig = typeof aiConfigParam === 'string'
+    ? { apiKey: aiConfigParam }
+    : (aiConfigParam || {});
 
-  if (!client) {
-    // Graceful fallback — rule-based responses
-    return generateFallbackResponse(userMessage);
+  const apiKey = (config.apiKey && config.apiKey.trim()) || process.env.GEMINI_API_KEY || '';
+  const provider = config.provider || (
+    apiKey.startsWith('AIza') ? 'gemini' :
+    apiKey.startsWith('sk-') ? 'openai' :
+    config.baseUrl ? 'custom' :
+    process.env.GEMINI_API_KEY ? 'gemini' : 'local'
+  );
+
+  // Build context string from live telemetry data
+  let contextStr = '';
+  if (context) {
+    if (context.siemEvents && context.siemEvents.length > 0) {
+      const recent = context.siemEvents.slice(0, 5);
+      contextStr += `\n\n**Live SIEM Events (last ${recent.length}):**\n`;
+      recent.forEach((e: any) => {
+        contextStr += `- [${e.severity}] ${e.sourceCategory} | Host: ${e.hostName} | EventID: ${e.eventId} | ${e.summary} | MITRE: ${e.mitreTechnique}\n`;
+      });
+    }
+    if (context.findings && context.findings.length > 0) {
+      contextStr += `\n**Vulnerability Findings (${context.findings.length} total):**\n`;
+      context.findings.slice(0, 3).forEach((f: any) => {
+        contextStr += `- ${f.cveId || 'CVE-UNKNOWN'} | CVSS ${f.cvss || 'N/A'} | ${f.name || f.description || 'Finding'}\n`;
+      });
+    }
+    if (context.scan && context.scan.openPorts) {
+      contextStr += `\n**Recent Port Scan — Host ${context.scan.host}:**\n`;
+      contextStr += `Open ports: ${context.scan.openPorts.map((p: any) => `${p.port}/${p.protocol}`).join(', ')}\n`;
+    }
+    if (context.logs && context.logs.length > 0) {
+      contextStr += `\n**Ingested Log Events (${context.logs.length} total)**\n`;
+    }
   }
 
-  try {
-    const model = client.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      systemInstruction: SOC_SYSTEM_PROMPT,
-      safetySettings: SAFETY_SETTINGS,
-    });
+  const userIsChinese = isChineseText(userMessage);
+  const langInstruction = userIsChinese
+    ? '\n\n【語言指令】：使用者的提問為中文，請務必全程使用流暢、專業的繁體中文（Traditional Chinese）回答。'
+    : '\n\n[Language Instruction]: The user asked in English. You must respond entirely in professional English.';
 
-    // Build context string from live telemetry data
-    let contextStr = '';
-    if (context) {
-      if (context.siemEvents && context.siemEvents.length > 0) {
-        const recent = context.siemEvents.slice(0, 5);
-        contextStr += `\n\n**Live SIEM Events (last ${recent.length}):**\n`;
-        recent.forEach((e: any) => {
-          contextStr += `- [${e.severity}] ${e.sourceCategory} | Host: ${e.hostName} | EventID: ${e.eventId} | ${e.summary} | MITRE: ${e.mitreTechnique}\n`;
-        });
+  const fullMessage = contextStr
+    ? `${userMessage}\n\n---\n*Context from live SOC telemetry:*${contextStr}${langInstruction}`
+    : `${userMessage}${langInstruction}`;
+
+  // 1. User provided API Key or custom endpoint -> Execute user-provided model
+  if (apiKey || (config.baseUrl && provider !== 'local')) {
+    if (provider === 'gemini') {
+      const client = getGenAI(apiKey);
+      if (client) {
+        try {
+          const modelName = config.model?.trim() || 'gemini-1.5-flash';
+          const model = client.getGenerativeModel({
+            model: modelName,
+            systemInstruction: SOC_SYSTEM_PROMPT,
+            safetySettings: SAFETY_SETTINGS,
+          });
+          const chatHistory = history.map(h => ({
+            role: h.role,
+            parts: [{ text: h.parts }],
+          }));
+          const chat = model.startChat({ history: chatHistory });
+          const result = await chat.sendMessage(fullMessage);
+          return result.response.text();
+        } catch (err: any) {
+          console.error('[Gemini AI API error, falling back to local real telemetry engine]:', err.message);
+          return runLocalSocInference(userMessage, context);
+        }
       }
-      if (context.findings && context.findings.length > 0) {
-        contextStr += `\n**Vulnerability Findings (${context.findings.length} total):**\n`;
-        context.findings.slice(0, 3).forEach((f: any) => {
-          contextStr += `- ${f.cveId || 'CVE-UNKNOWN'} | CVSS ${f.cvss || 'N/A'} | ${f.name || f.description || 'Finding'}\n`;
-        });
-      }
-      if (context.scan && context.scan.openPorts) {
-        contextStr += `\n**Recent Port Scan — Host ${context.scan.host}:**\n`;
-        contextStr += `Open ports: ${context.scan.openPorts.map((p: any) => `${p.port}/${p.protocol}`).join(', ')}\n`;
-      }
-      if (context.logs && context.logs.length > 0) {
-        contextStr += `\n**Ingested Log Events (${context.logs.length} total)**\n`;
+    } else if (provider === 'openai' || provider === 'custom') {
+      try {
+        return await callOpenAiCompatible(config, history, fullMessage);
+      } catch (err: any) {
+        console.error('[OpenAI API error, falling back to local real telemetry engine]:', err.message);
+        return runLocalSocInference(userMessage, context);
       }
     }
-
-    const fullMessage = contextStr
-      ? `${userMessage}\n\n---\n*Context from live SOC telemetry:*${contextStr}`
-      : userMessage;
-
-    // Build chat history for multi-turn
-    const chatHistory = history.map(h => ({
-      role: h.role,
-      parts: [{ text: h.parts }],
-    }));
-
-    const chat = model.startChat({ history: chatHistory });
-    const result = await chat.sendMessage(fullMessage);
-    return result.response.text();
-  } catch (err: any) {
-    console.error('[Gemini] API error:', err.message);
-    return generateFallbackResponse(userMessage);
   }
+
+  // 2. No API provided -> Perform real analysis using Local Model
+  if (provider === 'local' || !apiKey) {
+    const localOllamaReply = await tryLocalOllama(history, fullMessage, config.model || 'llama3.2');
+    if (localOllamaReply) {
+      return localOllamaReply;
+    }
+  }
+
+  // Embedded local real telemetry inference engine
+  return runLocalSocInference(userMessage, context);
 }
 
-export async function analyzeLogsWithGemini(telemetry: ThreatAnalysisContext): Promise<{
+export function generateFallbackResponse(input: string): string {
+  return runLocalSocInference(input);
+}
+
+export async function analyzeLogsWithGemini(
+  telemetry: ThreatAnalysisContext,
+  customApiKey?: string
+): Promise<{
   riskScore: number;
   postureStatus: 'OPTIMAL' | 'ELEVATED_RISK' | 'ACTION_REQUIRED';
   executiveSummary: string;
@@ -132,10 +365,10 @@ export async function analyzeLogsWithGemini(telemetry: ThreatAnalysisContext): P
   prioritizedRemediations: string[];
   aiGenerated: boolean;
 }> {
-  const client = getGenAI();
+  const client = getGenAI(customApiKey);
 
   if (!client) {
-    return generateFallbackAnalysis(telemetry);
+    return runLocalTelemetryAssessment(telemetry);
   }
 
   try {
@@ -176,45 +409,9 @@ ${telemetry.scan?.openPorts?.map((p: any) => `- Port ${p.port}/${p.protocol}: ${
           ? status : 'ELEVATED_RISK';
       return { ...parsed, postureStatus: validStatus, aiGenerated: true };
     }
-    return generateFallbackAnalysis(telemetry);
+    return runLocalTelemetryAssessment(telemetry);
   } catch (err: any) {
-    console.error('[Gemini] Analysis error:', err.message);
-    return generateFallbackAnalysis(telemetry);
+    console.error('[Gemini] Analysis error, falling back to local telemetry engine:', err.message);
+    return runLocalTelemetryAssessment(telemetry);
   }
-}
-
-function generateFallbackResponse(input: string): string {
-  const lower = input.toLowerCase();
-  if (lower.includes('4625') || lower.includes('brute') || lower.includes('logon fail')) {
-    return `### 🔍 Event ID 4625 — Failed Logon Analysis\n\n**MITRE ATT&CK**: T1110.001 (Brute Force: Password Guessing)\n\nHigh-volume 4625 events indicate a credential stuffing or password spray attack.\n\n**Immediate Actions:**\n1. Lock the targeted account temporarily and review source IPs\n2. Enable Account Lockout Policy (threshold: 5 attempts, 30-min observation)\n3. Block source IPs at perimeter firewall\n4. Correlate with Event ID 4624 (successful logon) to detect lateral movement\n\n*Note: Connect a Gemini API key in server/.env for AI-powered analysis.*`;
-  }
-  if (lower.includes('4688') || lower.includes('process') || lower.includes('powershell')) {
-    return `### 🔍 Event ID 4688 — Suspicious Process Creation\n\n**MITRE ATT&CK**: T1059.001 (Command and Scripting Interpreter: PowerShell)\n\nEncoded PowerShell (\`-enc\` or \`-EncodedCommand\`) is a red flag for stager payloads.\n\n**Immediate Actions:**\n1. Decode the Base64 command: \`[System.Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('<payload>'))\`\n2. Block execution with AppLocker or WDAC policy\n3. Enable PowerShell Script Block Logging (Event ID 4104)\n4. Hunt for child processes spawned by \`powershell.exe\`\n\n*Note: Connect a Gemini API key for AI-powered analysis.*`;
-  }
-  return `### 🛡️ CyberMind SOC Copilot\n\nQuery received. To enable AI-powered responses, add your **GEMINI_API_KEY** to \`server/.env\`.\n\nCurrently operating in rule-based mode. Ask about:\n- **Windows Event IDs** (4625, 4688, 4720, 1102)\n- **MITRE techniques** (T1059, T1110, T1071)\n- **Log analysis**, **network anomalies**, **incident response**`;
-}
-
-function generateFallbackAnalysis(telemetry: ThreatAnalysisContext) {
-  const openPorts = telemetry.scan?.openPorts?.length || 0;
-  const siemCritical = telemetry.siemEvents?.filter((e: any) => e.severity === 'Critical').length || 0;
-  let riskScore = 90;
-  riskScore -= openPorts * 5;
-  riskScore -= siemCritical * 15;
-  riskScore = Math.max(35, Math.min(97, riskScore));
-  const postureStatus: 'OPTIMAL' | 'ELEVATED_RISK' | 'ACTION_REQUIRED' =
-    riskScore >= 85 ? 'OPTIMAL' : riskScore >= 65 ? 'ELEVATED_RISK' : 'ACTION_REQUIRED';
-  return {
-    riskScore, postureStatus,
-    executiveSummary: `Rule-based analysis evaluated ${telemetry.logs?.length || 0} log events, ${openPorts} open ports, and ${telemetry.siemEvents?.length || 0} SIEM alerts. Add GEMINI_API_KEY for AI-powered analysis.`,
-    mitreCoverage: [
-      { technique: 'T1110.001', description: 'Password Guessing / Brute Force Monitoring' },
-      { technique: 'T1059.001', description: 'PowerShell Encoded Command Detection' },
-    ],
-    prioritizedRemediations: [
-      'Enforce MFA on all privileged accounts.',
-      'Restrict SMB (445) and RDP (3389) at perimeter.',
-      'Enable PowerShell Script Block Logging.',
-    ],
-    aiGenerated: false,
-  };
 }

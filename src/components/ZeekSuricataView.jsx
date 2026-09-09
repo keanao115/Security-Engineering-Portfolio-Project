@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ShieldAlert, Server, Activity, Terminal } from 'lucide-react';
 import TelemetrySourceBadge from './TelemetrySourceBadge';
 import { useLanguage } from '../contexts/LanguageContext';
+import { authFetch } from '../services/apiClient';
 
 export default function ZeekSuricataView() {
   const { t, language } = useLanguage();
@@ -12,10 +13,10 @@ export default function ZeekSuricataView() {
 
   const fetchStatus = async () => {
     try {
-      const resZ = await fetch('/api/zeek/status');
+      const resZ = await authFetch('/api/zeek/status');
       if (resZ.ok) setZeekStatus(await resZ.json());
 
-      const resS = await fetch('/api/suricata/status');
+      const resS = await authFetch('/api/suricata/status');
       if (resS.ok) setSuricataStatus(await resS.json());
     } catch (err) {
       console.warn('[ZeekSuricataView] Fetch failed:', err);

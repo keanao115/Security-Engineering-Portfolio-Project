@@ -7,21 +7,24 @@ import {
   scheduleDiscoveryJob
 } from '../services/assetDiscoveryService.js';
 import { runLocalNetworkDiscovery, buildRealAssetList, getArpTable, getActiveConnections } from '../services/osNetworkDiscovery.js';
+import { requireRole } from '../middleware/auth.js';
 
 export const discoveryRouter = Router();
 
-discoveryRouter.get('/scope', (req: Request, res: Response) => {
+// GET /api/discovery/scope (Admin, Analyst, Viewer)
+discoveryRouter.get('/scope', requireRole(['Admin', 'Analyst', 'Viewer']), (req: Request, res: Response) => {
   const config = getDiscoveryScopeConfig();
   return res.json(config);
 });
 
-discoveryRouter.post('/scope', (req: Request, res: Response) => {
+// POST /api/discovery/scope (Admin Only)
+discoveryRouter.post('/scope', requireRole(['Admin']), (req: Request, res: Response) => {
   const updated = updateDiscoveryScopeConfig(req.body);
   return res.json({ message: 'Discovery CIDR scope updated', config: updated });
 });
 
-// POST /api/discovery/sweep — standard sweep (authorized CIDRs)
-discoveryRouter.post('/sweep', async (req: Request, res: Response) => {
+// POST /api/discovery/sweep — standard sweep (authorized CIDRs) (Admin & Analyst Only)
+discoveryRouter.post('/sweep', requireRole(['Admin', 'Analyst']), async (req: Request, res: Response) => {
   const { targetCidr, scanSpeed } = req.body;
   try {
     const sweepResult = await runAuthorizedAssetSweep(targetCidr || '192.168.1.0/24', scanSpeed || 'Normal');
@@ -78,12 +81,12 @@ discoveryRouter.get('/netstat', async (req: Request, res: Response) => {
   }
 });
 
-discoveryRouter.get('/jobs', (req: Request, res: Response) => {
+discoveryRouter.get('/jobs', requireRole(['Admin', 'Analyst', 'Viewer']), (req: Request, res: Response) => {
   const jobs = getDiscoveryJobs();
   return res.json({ total: jobs.length, jobs });
 });
 
-discoveryRouter.post('/jobs/schedule', (req: Request, res: Response) => {
+discoveryRouter.post('/jobs/schedule', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
   const { targetCidr, intervalMin, scanSpeed } = req.body;
   if (!targetCidr) {
     return res.status(400).json({ error: 'targetCidr is required' });

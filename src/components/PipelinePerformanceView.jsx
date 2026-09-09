@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Cpu, Zap, Activity, HardDrive } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { authFetch } from '../services/apiClient';
 
 export default function PipelinePerformanceView() {
   const { t, language } = useLanguage();
@@ -10,7 +11,7 @@ export default function PipelinePerformanceView() {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch('/api/pipeline/stats');
+      const res = await authFetch('/api/pipeline/stats');
       if (res.ok) setStats(await res.json());
     } catch (err) {
       console.warn('[PipelinePerformanceView] Fetch failed:', err);

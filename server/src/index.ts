@@ -1,8 +1,8 @@
+import 'dotenv/config';
 import express from 'express';
 import http from 'http';
 import helmet from 'helmet';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import { initDbConnection } from './db/client.js';
 import { apiRateLimiter, ingestRateLimiter } from './middleware/rateLimiter.js';
 import { authenticateJwt } from './middleware/auth.js';
@@ -41,8 +41,6 @@ import { zeekRouter } from './routes/zeekRoutes.js';
 import { suricataRouter } from './routes/suricataRoutes.js';
 import { pipelineRouter } from './routes/pipelineRoutes.js';
 import { investigationRouter } from './routes/investigationRoutes.js';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -153,11 +151,11 @@ app.get('/health', async (req, res) => {
 
 // ─── REST Routes — Platform Mode & Enterprise Telemetry ───────────────────────
 app.use('/api/platform', platformRouter);
-app.use('/api/capture', captureRouter);
-app.use('/api/zeek', zeekRouter);
-app.use('/api/suricata', suricataRouter);
-app.use('/api/pipeline', pipelineRouter);
-app.use('/api/investigation', investigationRouter);
+app.use('/api/capture', authenticateJwt, captureRouter);
+app.use('/api/zeek', authenticateJwt, zeekRouter);
+app.use('/api/suricata', authenticateJwt, suricataRouter);
+app.use('/api/pipeline', authenticateJwt, pipelineRouter);
+app.use('/api/investigation', authenticateJwt, investigationRouter);
 
 // ─── REST Routes — Core SOC ──────────────────────────────────────────────────
 app.use('/api/auth', authRouter);

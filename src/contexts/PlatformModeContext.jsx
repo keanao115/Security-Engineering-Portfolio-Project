@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authFetch } from '../services/apiClient';
 
 const PlatformModeContext = createContext({
   platformMode: 'LIVE',
@@ -33,7 +34,7 @@ export function PlatformModeProvider({ children }) {
 
   const refreshStatus = async () => {
     try {
-      const res = await fetch('/api/platform/status');
+      const res = await authFetch('/api/platform/status');
       if (res.ok) {
         const data = await res.json();
         setPlatformStatus(data);
@@ -47,19 +48,22 @@ export function PlatformModeProvider({ children }) {
 
   const switchMode = async (targetMode, enableSynthetic = true, enableSeed = true) => {
     try {
-      const res = await fetch('/api/platform/mode', {
+      const res = await authFetch('/api/platform/mode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetMode, enableSynthetic, enableSeed }),
       });
       if (res.ok) {
         await refreshStatus();
-        return true;
+        return { success: true };
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        return { success: false, error: errJson.error || `HTTP ${res.status}` };
       }
     } catch (err) {
       console.error('[PlatformModeContext] Mode switch failed:', err);
+      return { success: false, error: err.message };
     }
-    return false;
   };
 
   useEffect(() => {

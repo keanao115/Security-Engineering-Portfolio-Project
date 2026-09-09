@@ -4,6 +4,7 @@ import { PlatformStatusResponse } from '../types/platformMode.js';
 import { recordAuditLog, getAuditLogs } from '../services/auditService.js';
 import { SyntheticFlowGenerator } from '../demo/syntheticFlowGenerator.js';
 import { seedDemoData, clearDemoData } from '../demo/seedDataService.js';
+import { authenticateJwt, requireRole } from '../middleware/auth.js';
 
 export const platformRouter = Router();
 const serverStartTime = Date.now();
@@ -30,8 +31,8 @@ platformRouter.get('/status', (_req: Request, res: Response) => {
   return res.json(status);
 });
 
-// POST /api/platform/mode — Controlled Runtime Operating Mode Switching
-platformRouter.post('/mode', async (req: Request, res: Response) => {
+// POST /api/platform/mode — Controlled Runtime Operating Mode Switching (Admin Only)
+platformRouter.post('/mode', authenticateJwt, requireRole(['Admin']), async (req: Request, res: Response) => {
   const currentConfig = loadPlatformConfig();
 
   if (!currentConfig.allowRuntimeModeSwitch) {
@@ -83,7 +84,7 @@ platformRouter.post('/mode', async (req: Request, res: Response) => {
   });
 });
 
-// GET /api/platform/audit-logs — Audit log history
-platformRouter.get('/audit-logs', (_req: Request, res: Response) => {
+// GET /api/platform/audit-logs — Audit log history (Admin & Analyst Only)
+platformRouter.get('/audit-logs', authenticateJwt, requireRole(['Admin', 'Analyst']), (_req: Request, res: Response) => {
   return res.json({ auditLogs: getAuditLogs() });
 });

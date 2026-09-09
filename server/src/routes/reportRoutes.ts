@@ -1,16 +1,17 @@
 import { Request, Response, Router } from 'express';
 import { createCisoAuditPdfReport } from '../services/pdfReportService.js';
 import { memoryDb } from '../db/client.js';
+import { requireRole } from '../middleware/auth.js';
 
 export const reportRouter = Router();
 
-reportRouter.get('/', (req: Request, res: Response) => {
+reportRouter.get('/', requireRole(['Admin', 'Analyst', 'Viewer']), (req: Request, res: Response) => {
   return res.json({
     reports: memoryDb.reports
   });
 });
 
-reportRouter.post('/pdf', (req: Request, res: Response) => {
+reportRouter.post('/pdf', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
   const { title, classification, riskScore, summary } = req.body;
 
   const pdfBuffer = createCisoAuditPdfReport({
