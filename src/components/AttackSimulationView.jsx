@@ -371,8 +371,8 @@ detection:
       vulnerabilities: [
         {
           id: "NV-9421",
-          cve: "CVE-2023-SQLI",
-          name: isZh ? "OWASP A03:2021 /products.php SQL 注入弱點" : "OWASP A03:2021 SQL Injection in /products.php",
+          cve: "CWE-89",
+          name: isZh ? "OWASP A03:2021 /products.php SQL 注入弱點 (CWE-89)" : "OWASP A03:2021 SQL Injection in /products.php (CWE-89)",
           severity: "Critical",
           cvss: 9.8,
           host: "web-prod-01",

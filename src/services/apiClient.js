@@ -17,12 +17,14 @@ export async function ensureToken() {
     }
   } catch {}
 
-  // Otherwise, bootstrap initial Admin session via server authentication
+  // In DEMO mode, bootstrap an initial evaluation session using the server's demo role switch.
+  // In LIVE mode, /api/auth/switch-role returns 403 Forbidden; unauthenticated requests receive 401
+  // and dispatch auth:expired to prompt standard credential login. No passwords are hardcoded in client bundle.
   if (!bootstrapPromise) {
-    bootstrapPromise = fetch('/api/auth/login', {
+    bootstrapPromise = fetch('/api/auth/switch-role', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'admin', password: 'Admin@CyberMind2026!' })
+      body: JSON.stringify({ role: 'Admin' })
     })
       .then(r => (r.ok ? r.json() : null))
       .then(d => {
@@ -54,10 +56,17 @@ export async function authFetch(url, options = {}) {
     headers.set('Authorization', `Bearer ${token}`);
   }
   
-  return fetch(url, {
+  const response = await fetch(url, {
     ...options,
     headers
   });
+
+  if (response.status === 401 && !url.includes('/api/auth/login')) {
+    console.warn('[API Client] 401 Unauthorized received from server. Session expired or invalid.');
+    window.dispatchEvent(new CustomEvent('auth:expired', { detail: { url } }));
+  }
+
+  return response;
 }
 
 // ─── Collector Management APIs ─────────────────────────────────────────────
@@ -164,21 +173,6 @@ export async function generatePdfReport(reportParams) {
   }
 }
 
-export async function analyzeThreatsWithAi(telemetryData) {
-  try {
-    const res = await authFetch(`${API_BASE}/threats/analyze`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(telemetryData)
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (err) {
-    console.warn('[API Client] analyzeThreatsWithAi fallback:', err.message);
-    return null;
-  }
-}
-
 // ─── Network Flow / SPAN APIs ────────────────────────────────────────────────
 
 export async function fetchLiveNetworkFlows() {
@@ -201,21 +195,6 @@ export async function fetchPcapSample() {
     return await res.json();
   } catch (err) {
     console.warn('[API Client] fetchPcapSample fallback:', err.message);
-    return null;
-  }
-}
-
-export async function analyzePcapContent(fileName, rawBufferText) {
-  try {
-    const res = await authFetch(`${API_BASE}/packets/analyze-pcap`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileName, rawBufferText })
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (err) {
-    console.warn('[API Client] analyzePcapContent fallback:', err.message);
     return null;
   }
 }
@@ -328,30 +307,6 @@ export async function testAiConnection(aiConfig) {
     return await res.json();
   } catch (err) {
     return { success: false, message: err.message };
-  }
-}
-
-export async function analyzeWithGeminiAi(telemetryData, aiConfig = null) {
-  try {
-    const payload = { ...telemetryData };
-    if (aiConfig) {
-      if (typeof aiConfig === 'string') {
-        payload.apiKey = aiConfig;
-      } else {
-        payload.aiConfig = aiConfig;
-        if (aiConfig.apiKey) payload.apiKey = aiConfig.apiKey;
-      }
-    }
-    const res = await authFetch(`${API_BASE}/ai/analyze`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (err) {
-    console.warn('[API Client] analyzeWithGeminiAi fallback:', err.message);
-    return null;
   }
 }
 
@@ -470,6 +425,89 @@ export async function lookupCveByProduct(software) {
   }
 }
 
+// ─── Phase 5: Incident Management & Escalation APIs ──────────────────────────
+
+export async function fetchIncidentCases() {
+  try {
+    const res = await authFetch(`${API_BASE}/investigation/incidents`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[API Client] fetchIncidentCases fallback:', err.message);
+    return { incidents: [] };
+  }
+}
+
+export async function createIncidentCase(incidentData) {
+  try {
+    const res = await authFetch(`${API_BASE}/investigation/incidents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(incidentData),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  } catch (err) {
+    console.error('[API Client] createIncidentCase failed:', err.message);
+    throw err;
+  }
+}
+
+export async function updateIncidentCase(id, patchData) {
+  try {
+    const res = await authFetch(`${API_BASE}/investigation/incidents/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patchData),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.error('[API Client] updateIncidentCase failed:', err.message);
+    throw err;
+  }
+}
+
+export async function escalateEventToIncident(event) {
+  const payload = {
+    title: `[SIEM Escalate] ${event.summary?.slice(0, 80) || 'Correlated Security Alert'}`,
+    severity: event.severity || 'Medium',
+    sourceIp: event.rawDetails?.IpAddress || event.rawDetails?.src_ip || event.rawDetails?.srcip || 'Unknown',
+    targetIp: event.hostName || event.rawDetails?.dest_ip || 'Internal Asset',
+    mitreTechnique: event.mitreTechnique || 'T1071',
+    summary: event.summary || 'Escalated from SIEM Event Console',
+    notes: [`Escalated from EventID ${event.eventId || 'GENERIC'} at ${new Date().toLocaleString()}`],
+  };
+  return await createIncidentCase(payload);
+}
+
+// ─── Centralized Risk Score & GeoIP APIs ─────────────────────────────────────
+
+export async function fetchRiskScore() {
+  try {
+    const res = await authFetch(`${API_BASE}/threats/risk-score`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[API Client] fetchRiskScore fallback:', err.message);
+    return null;
+  }
+}
+
+export async function fetchIpGeo(ip) {
+  try {
+    const res = await authFetch(`${API_BASE}/threats/geoip/${encodeURIComponent(ip)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[API Client] fetchIpGeo fallback:', err.message);
+    return null;
+  }
+}
+
 // ─── Singleton WebSocket Connection Manager ──────────────────────────────────
 
 let globalWs = null;
@@ -477,7 +515,7 @@ let reconnectTimer = null;
 let isConnecting = false;
 const telemetryListeners = new Set();
 
-function initGlobalWebSocket() {
+async function initGlobalWebSocket() {
   if (globalWs && (globalWs.readyState === WebSocket.OPEN || globalWs.readyState === WebSocket.CONNECTING)) {
     return;
   }
@@ -485,10 +523,20 @@ function initGlobalWebSocket() {
   isConnecting = true;
 
   try {
+    let token = getStoredToken();
+    if (!token) {
+      token = await ensureToken();
+    }
+
+    if (!token) {
+      isConnecting = false;
+      return;
+    }
+
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsHost = window.location.hostname;
     const wsPort = '5000';
-    const wsUrl = `${wsProtocol}//${wsHost}:${wsPort}/ws/telemetry`;
+    const wsUrl = `${wsProtocol}//${wsHost}:${wsPort}/ws/telemetry?token=${encodeURIComponent(token)}`;
 
     globalWs = new WebSocket(wsUrl);
 
@@ -523,7 +571,7 @@ function initGlobalWebSocket() {
 
     globalWs.onerror = (err) => {
       isConnecting = false;
-      console.warn('[WebSocket] Connection error (backend may be offline)');
+      console.warn('[WebSocket] Connection error (backend may be offline)', err);
     };
   } catch (err) {
     isConnecting = false;
@@ -556,3 +604,4 @@ export function connectLiveTelemetryStream(onMessage, onOpen, onClose) {
     }
   };
 }
+

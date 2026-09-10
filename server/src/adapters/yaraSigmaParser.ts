@@ -31,18 +31,6 @@ export function parseYaraSigmaResults(rawContent: string): YARAOrSigmaDetection[
     }
   });
 
-  if (detections.length === 0) {
-    // Standard default demonstration baseline for uploaded YARA/Sigma output logs
-    detections.push({
-      id: 'SIGMA-DEF-1',
-      engine: 'SIGMA',
-      ruleName: 'win_powershell_encoded_cmd',
-      severity: 'High',
-      matchedTarget: 'DC-SRV-01.corp.internal (EventID: 4688)',
-      mitreTechnique: 'T1059.001 (PowerShell Execution)',
-      summary: 'Detects base64 encoded PowerShell command execution launched via cmd.exe parent process.'
-    });
-  }
 
   return detections;
 }

@@ -7,7 +7,9 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "lint": "tsc --noEmit",
     "test": "tsc && node --test dist/tests/*.test.js",
+    "test:coverage": "tsc && node --test --experimental-test-coverage dist/tests/*.test.js",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts"
   },
@@ -17,16 +19,20 @@
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
+    "express": "^4.21.2",
     "express-rate-limit": "^7.3.1",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
-    "jspdf": "^2.5.1",
+    "jspdf": "^4.2.1",
     "multer": "^2.2.0",
     "pg": "^8.12.0",
     "ws": "^8.17.1",
     "xml2js": "^0.6.2",
     "zod": "^3.23.8"
+  },
+  "overrides": {
+    "dompurify": "^3.2.4",
+    "qs": "^6.14.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

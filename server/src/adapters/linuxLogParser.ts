@@ -28,8 +28,8 @@ export function parseLinuxLogTelemetry(rawText: string): LinuxLogTelemetry[] {
       sourceType: 'Linux Syslog / Auth',
       timestamp: line.substring(0, 15) || new Date().toISOString(),
       action,
-      ip: ipMatch ? ipMatch[0] : '185.220.101.5',
-      user: userMatch ? userMatch[2] : 'root',
+      ip: ipMatch ? ipMatch[0] : 'N/A',
+      user: userMatch ? userMatch[2] : 'N/A',
       message: line,
       raw: line
     });

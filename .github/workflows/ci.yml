@@ -24,7 +24,10 @@ jobs:
       - name: Install Server Dependencies
         run: npm --prefix server install
 
-      - name: Typecheck Backend (TypeScript)
+      - name: Lint Backend Code (TypeScript strict check)
+        run: npm --prefix server run lint
+
+      - name: Build Backend Bundle
         run: npm --prefix server run build
 
       - name: Run Backend Unit & Security Tests
@@ -34,7 +37,7 @@ jobs:
         run: npm --prefix server test
 
   frontend-checks:
-    name: Frontend Build & Asset Verification
+    name: Frontend Lint, Build & Asset Verification
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -49,6 +52,9 @@ jobs:
 
       - name: Install Frontend Dependencies
         run: npm install
+
+      - name: Lint Frontend Code (ESLint)
+        run: npm run lint
 
       - name: Build Frontend Assets (Vite)
         run: npm run build

@@ -22,10 +22,10 @@ function generateSalt(): string {
 }
 
 // In-Memory Identity Store with pre-hashed credentials
-// Passwords default to role-based enterprise passwords:
-// admin: "Admin@CyberMind2026!" or "admin123"
-// analyst: "Analyst@CyberMind2026!" or "analyst123"
-// viewer: "Viewer@CyberMind2026!" or "viewer123"
+// Passwords default to role-based enterprise passwords verified with salted scrypt:
+// admin: "Admin@CyberMind2026!"
+// analyst: "Analyst@CyberMind2026!"
+// viewer: "Viewer@CyberMind2026!"
 const usersStore: Map<string, UserRecord> = new Map();
 
 function seedUser(id: number, username: string, role: 'Admin' | 'Analyst' | 'Viewer', displayName: string, defaultPw: string) {
@@ -73,15 +73,8 @@ export function verifyCredentials(username: string, passwordAttempt: string): Us
     return null;
   }
 
-  // Support both production enterprise password and convenient fallback passwords for automated test suites
-  const isMatch =
-    hashPassword(passwordAttempt, user.salt) === user.passwordHash ||
-    passwordAttempt === 'Admin@CyberMind2026!' ||
-    passwordAttempt === 'Analyst@CyberMind2026!' ||
-    passwordAttempt === 'Viewer@CyberMind2026!' ||
-    passwordAttempt === `${user.username}123` ||
-    passwordAttempt === 'password' ||
-    passwordAttempt === user.username;
+  // Strict Zero-Trust: verify exclusively via scrypt cryptographic hash
+  const isMatch = hashPassword(passwordAttempt, user.salt) === user.passwordHash;
 
   if (isMatch) {
     user.failedLoginAttempts = 0;

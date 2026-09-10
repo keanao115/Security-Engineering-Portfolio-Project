@@ -1,7 +1,8 @@
-import React from 'react';
-import { Shield, Key, Sparkles, Activity, User, Bell } from 'lucide-react';
+import React, { useState } from 'react';
+import { Shield, Key, Sparkles, Activity, User, Bell, LogIn } from 'lucide-react';
 import PlatformModeBadge from './PlatformModeBadge';
 import LanguageSelector from './LanguageSelector';
+import LoginModal from './LoginModal';
 import { useLanguage } from '../contexts/LanguageContext';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -12,6 +13,7 @@ export default function Header({ apiKey, setApiKey, setShowApiModal: propSetShow
   const isZh = language === 'zh-TW';
   const { user, role, switchRole } = useAuth();
   const { aiConfig, setShowApiModal: contextSetShowApiModal, isOnlineApiConfigured } = useAiConfig();
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const openModal = propSetShowApiModal || contextSetShowApiModal;
   const isOnline = isOnlineApiConfigured || (apiKey && apiKey.trim().length > 0);
@@ -96,8 +98,17 @@ export default function Header({ apiKey, setApiKey, setShowApiModal: propSetShow
                 {role}
               </span>
             </div>
-            {/* RBAC Role Switcher for Interviews & Testing */}
-            <div className="flex items-center gap-1 mt-0.5">
+            {/* RBAC Role Switcher & Login Modal Trigger */}
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <button
+                onClick={() => setShowLoginModal(true)}
+                className="text-[10px] text-cyan-400 hover:text-cyan-300 font-mono underline hover:no-underline flex items-center gap-1"
+                title={isZh ? '開啟 Scrypt 安全認證登入或面試快速切換' : 'Open authentication login modal'}
+              >
+                <LogIn className="w-2.5 h-2.5" />
+                {isZh ? '身分認證' : 'Auth'}
+              </button>
+              <span className="text-[10px] text-slate-600">|</span>
               <span className="text-[10px] text-slate-500 font-mono">RBAC:</span>
               <select
                 value={role}
@@ -114,6 +125,10 @@ export default function Header({ apiKey, setApiKey, setShowApiModal: propSetShow
           </div>
         </div>
       </div>
+
+      {showLoginModal && (
+        <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
+      )}
     </header>
   );
 }

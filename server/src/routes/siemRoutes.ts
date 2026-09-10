@@ -6,17 +6,36 @@ import { requireRole } from '../middleware/auth.js';
 
 export const siemRouter = Router();
 
-siemRouter.get('/events', (req: Request, res: Response) => {
-  const { category, severity } = req.query;
-  const events = getSiemEvents(category as string, severity as string);
+siemRouter.get('/events', requireRole(['Admin', 'Analyst', 'Viewer']), (req: Request, res: Response) => {
+  const { category, severity, page, limit } = req.query;
+  const allEvents = getSiemEvents(category as string, severity as string);
+  const total = allEvents.length;
+
+  if (page || limit) {
+    const pageNum = Math.max(1, parseInt(String(page || '1'), 10));
+    const limitNum = Math.min(200, Math.max(1, parseInt(String(limit || '50'), 10)));
+    const startIndex = (pageNum - 1) * limitNum;
+    const paginated = allEvents.slice(startIndex, startIndex + limitNum);
+
+    return res.json({
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum),
+      events: paginated,
+    });
+  }
 
   return res.json({
-    total: events.length,
-    events
+    total,
+    page: 1,
+    limit: total,
+    totalPages: 1,
+    events: allEvents,
   });
 });
 
-siemRouter.get('/stats', (req: Request, res: Response) => {
+siemRouter.get('/stats', requireRole(['Admin', 'Analyst', 'Viewer']), (req: Request, res: Response) => {
   const stats = getSiemStats();
   return res.json(stats);
 });
@@ -64,7 +83,7 @@ siemRouter.post('/ingest/bulk', requireRole(['Admin', 'Analyst']), (req: Request
   return res.status(201).json({ message: `Successfully ingested ${ingested.length} SIEM events`, total: ingested.length });
 });
 
-siemRouter.get('/correlate', (req: Request, res: Response) => {
+siemRouter.get('/correlate', requireRole(['Admin', 'Analyst', 'Viewer']), (req: Request, res: Response) => {
   const result = evaluateMultiVectorCorrelation();
   return res.json(result);
 });

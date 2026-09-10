@@ -204,12 +204,12 @@ export default function PacketInspectorView() {
                       <th className="py-2 px-2">User-Agent</th>
                     </tr></thead>
                     <tbody className="divide-y divide-slate-900">
-                      {(pcapData.httpRequests || []).map((r, i) => (
+                      {(pcapData.httpSessions || pcapData.httpRequests || []).map((r, i) => (
                         <tr key={i} className="hover:bg-slate-900/40">
                           <td className="py-2 px-2 text-slate-500">{r.timestamp}</td>
                           <td className="py-2 px-2 text-cyan-400 font-bold">{r.method}</td>
                           <td className="py-2 px-2 text-slate-300">{r.host}{r.uri}</td>
-                          <td className="py-2 px-2 text-emerald-400">{r.responseStatus}</td>
+                          <td className="py-2 px-2 text-emerald-400">{r.statusCode ?? r.responseStatus ?? 200}</td>
                           <td className="py-2 px-2 text-slate-500 truncate max-w-xs">{r.userAgent}</td>
                         </tr>
                       ))}
@@ -227,9 +227,9 @@ export default function PacketInspectorView() {
                     <tbody className="divide-y divide-slate-900">
                       {(pcapData.tlsHandshakes || []).map((r, i) => (
                         <tr key={i} className="hover:bg-slate-900/40">
-                          <td className="py-2 px-2 text-cyan-300 font-bold">{r.serverNameIndication || 'N/A'}</td>
+                          <td className="py-2 px-2 text-cyan-300 font-bold">{r.serverSni || r.serverNameIndication || 'N/A'}</td>
                           <td className="py-2 px-2 text-slate-400">{r.tlsVersion}</td>
-                          <td className="py-2 px-2 text-slate-500 truncate max-w-xs">{r.cipherSuite}</td>
+                          <td className="py-2 px-2 text-slate-500 truncate max-w-xs">{r.cipherSuite || r.cipherSuiteId || 'TLS_AES_256_GCM_SHA384'}</td>
                           <td className="py-2 px-2">
                             {r.certAlert
                               ? <span className="text-red-400 font-bold flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {r.certAlert}</span>
@@ -245,18 +245,18 @@ export default function PacketInspectorView() {
                     <thead><tr className="border-b border-slate-800 text-slate-500 text-[10px] uppercase">
                       <th className="py-2 px-2">Src IP:Port</th>
                       <th className="py-2 px-2">Dst IP:Port</th>
-                      <th className="py-2 px-2">Flags</th>
-                      <th className="py-2 px-2">{isZh ? '重傳' : 'Retrans'}</th>
+                      <th className="py-2 px-2">Flags / State</th>
+                      <th className="py-2 px-2">{isZh ? '重傳率' : 'Retrans'}</th>
                       <th className="py-2 px-2">{isZh ? '傳輸大小' : 'Bytes'}</th>
                     </tr></thead>
                     <tbody className="divide-y divide-slate-900">
-                      {(pcapData.tcpStreams || []).map((r, i) => (
+                      {(pcapData.tcpFlows || pcapData.tcpStreams || []).map((r, i) => (
                         <tr key={i} className="hover:bg-slate-900/40">
                           <td className="py-2 px-2 text-slate-300">{r.srcIp}:{r.srcPort}</td>
-                          <td className="py-2 px-2 text-slate-300">{r.dstIp}:{r.dstPort}</td>
-                          <td className="py-2 px-2 text-cyan-400">{r.flags}</td>
-                          <td className="py-2 px-2 text-slate-500">{r.retransmissions || 0}</td>
-                          <td className="py-2 px-2 text-slate-400">{(r.bytes / 1024).toFixed(1)} KB</td>
+                          <td className="py-2 px-2 text-slate-300">{r.dstIp || r.destIp}:{r.dstPort || r.destPort}</td>
+                          <td className="py-2 px-2 text-cyan-400">{r.state || r.flags || 'ESTABLISHED'}</td>
+                          <td className="py-2 px-2 text-slate-500">{r.retransmitRatio !== undefined ? `${(r.retransmitRatio * 100).toFixed(1)}%` : (r.retransmissions ? `${r.retransmissions}` : '0%')}</td>
+                          <td className="py-2 px-2 text-slate-400">{r.bytes ? `${(r.bytes / 1024).toFixed(1)} KB` : '0 KB'}</td>
                         </tr>
                       ))}
                     </tbody>

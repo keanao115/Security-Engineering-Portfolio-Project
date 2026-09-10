@@ -134,12 +134,62 @@ const LOCAL_CATALOG: Record<string, NvdCveResult> = {
 };
 
 function lookupLocalCatalog(product: string, version: string): NvdCveResult | null {
-  const key = `${product} ${version}`.toLowerCase().trim();
+  const normProduct = product.toLowerCase().trim();
+  const normVersion = version.toLowerCase().trim();
+  const key = `${normProduct} ${normVersion}`.trim();
   if (LOCAL_CATALOG[key]) return LOCAL_CATALOG[key];
-  // Partial match on product name
-  for (const [k, v] of Object.entries(LOCAL_CATALOG)) {
-    if (product.toLowerCase().includes(k.split(' ')[0])) return v;
+
+  // Direct lookup by CVE ID (e.g. CVE-2021-44228)
+  const candidateCve = normProduct.startsWith('cve-') ? normProduct : normVersion.startsWith('cve-') ? normVersion : null;
+  if (candidateCve) {
+    for (const entry of Object.values(LOCAL_CATALOG)) {
+      if (entry.cveId.toLowerCase() === candidateCve) {
+        return entry;
+      }
+    }
   }
+
+  // Log4j: CVE-2021-44228 only applies to versions < 2.15.0
+  // Versions >= 2.15.0 are NOT vulnerable — do not return a false positive.
+  if (normProduct === 'log4j' || normProduct === 'apache log4j' || normProduct === 'log4j2') {
+    if (!normVersion) {
+      // No version specified — warn conservatively but cannot confirm vulnerability
+      return LOCAL_CATALOG['log4j'];
+    }
+    // Parse semantic version for comparison
+    const parts = normVersion.split('.').map(p => parseInt(p, 10));
+    const major = parts[0] ?? 0;
+    const minor = parts[1] ?? 0;
+    const patch = parts[2] ?? 0;
+    // Vulnerable: 2.x where x < 15, or 2.15.x where patch == 0 and minor < 15
+    const isVulnerable = major === 2 && (minor < 15 || (minor === 15 && patch === 0 && normVersion === '2.15.0'));
+    // Actually CVE-2021-44228 is fixed in 2.15.0; 2.15.0 itself has CVE-2021-45046.
+    // We conservatively mark only versions strictly < 2.15.0 as vulnerable to CVE-2021-44228.
+    const isStrictlyVulnerable = major === 2 && minor < 15;
+    if (isStrictlyVulnerable) {
+      return LOCAL_CATALOG['log4j 2.14.1'] || LOCAL_CATALOG['log4j'];
+    }
+    return null; // Patched version — not vulnerable to CVE-2021-44228
+  }
+
+  if (normProduct === 'apache httpd' || normProduct === 'apache http server' || normProduct === 'httpd' || (normProduct === 'apache' && normVersion === '2.4.49')) {
+    if (normVersion === '2.4.49' || !normVersion) {
+      return LOCAL_CATALOG['apache httpd 2.4.49'];
+    }
+  }
+
+  if (normProduct === 'vsftpd') {
+    if (normVersion === '2.3.4' || !normVersion) {
+      return LOCAL_CATALOG['vsftpd 2.3.4'];
+    }
+  }
+
+  if (normProduct === 'openssl') {
+    if (normVersion === '1.1.1k' || !normVersion) {
+      return LOCAL_CATALOG['openssl 1.1.1k'];
+    }
+  }
+
   return null;
 }
 

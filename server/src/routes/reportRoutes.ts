@@ -1,6 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { createCisoAuditPdfReport } from '../services/pdfReportService.js';
-import { memoryDb } from '../db/client.js';
+import { memoryDb, pushBounded } from '../db/client.js';
 import { requireRole } from '../middleware/auth.js';
 import { RiskScoringService } from '../services/riskScoringService.js';
 
@@ -26,7 +26,9 @@ reportRouter.post('/pdf', requireRole(['Admin', 'Analyst']), (req: Request, res:
     title,
     classification,
     riskScore,
-    summary
+    summary,
+    findings: req.body.findings || memoryDb.findings,
+    anomalies: req.body.anomalies || [],
   });
 
   const reportRecord = {
@@ -37,7 +39,7 @@ reportRouter.post('/pdf', requireRole(['Admin', 'Analyst']), (req: Request, res:
     created_at: new Date().toISOString()
   };
 
-  memoryDb.reports.push(reportRecord);
+  pushBounded(memoryDb.reports, reportRecord, 200);
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename=CyberMind_SOC_Security_Audit_Report.pdf');

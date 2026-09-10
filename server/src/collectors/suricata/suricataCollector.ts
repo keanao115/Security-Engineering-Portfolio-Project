@@ -44,8 +44,8 @@ export class SuricataCollectorService {
     this.eventCount++;
     const timestamp = entry.timestamp || new Date().toISOString();
 
-    const srcIp = entry.src_ip || '192.168.1.105';
-    const destIp = entry.dest_ip || '10.0.0.1';
+    const srcIp = entry.src_ip || 'Unknown';
+    const destIp = entry.dest_ip || 'Unknown';
     const srcPort = entry.src_port || 0;
     const destPort = entry.dest_port || 0;
     const eventType = (entry.event_type || 'alert').toUpperCase();

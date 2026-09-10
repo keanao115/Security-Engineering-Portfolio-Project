@@ -14,6 +14,47 @@ Built as a hands-on cybersecurity engineering portfolio, this project emphasizes
 
 ## 🌟 Core Functional Architecture
 
+```mermaid
+flowchart TB
+    subgraph DataSources["1. Telemetry Sources (遙測資料來源)"]
+        Syslog["Syslog (RFC 3164/5424)<br/>UDP:5514 / TCP:5515"]
+        WEF["Windows Event Forwarding<br/>HTTP:5516"]
+        NetFlow["NetFlow / IPFIX<br/>UDP:2055"]
+        Zeek["Zeek Logs & PCAP Upload"]
+        Suricata["Suricata EVE IDS"]
+    end
+
+    subgraph Pipeline["2. Queue & Normalization Pipeline (管道與正規化)"]
+        Queue["InMemoryMessageQueue<br/>(Backpressure & Watermarks)"]
+        Sanitizer["CRLF Stripper & PII Redactor"]
+        Parser["Unified Schema Normalizer<br/>(MITRE ATT&CK Mapping)"]
+    end
+
+    subgraph StorageEngine["3. Security Engine & State (核心引擎與狀態)"]
+        MemDB["Bounded Memory Stores<br/>(Sliding Windows)"]
+        Correlation["Multi-Vector Correlation Engine<br/>(Evidence Bundling)"]
+        RiskScore["Explainable CVSS Scoring"]
+        AI["Gemini AI SOC Copilot<br/>(30s Timeout + Local Fallback)"]
+    end
+
+    subgraph Presentation["4. Delivery & Security Layer (安全存取與視覺化)"]
+        Auth["Strict JWT Handshake & RBAC<br/>(Admin / Analyst / Viewer)"]
+        REST["Express REST API (Helmet + RateLimit)"]
+        WSS["Authenticated WebSocket Server"]
+        UI["React 18 Vite SOC Dashboard<br/>(Executive / SIEM / Threat Intel)"]
+    end
+
+    DataSources --> Queue
+    Queue --> Sanitizer --> Parser
+    Parser --> MemDB & Correlation
+    Correlation --> RiskScore
+    MemDB & Correlation <--> AI
+    Auth --> REST & WSS
+    MemDB --> REST
+    Correlation --> WSS
+    REST & WSS --> UI
+```
+
 The platform provides 11 streamlined, high-value security modules divided into three operational categories:
 
 ### 1. 🛡️ SOC Operations & Telemetry (核心運維與遙測)
@@ -41,7 +82,7 @@ The platform provides 11 streamlined, high-value security modules divided into t
 
 | 模組功能 | 實作狀態 | 數據來源 / 協定 | 處理路徑 |
 |---|---|---|---|
-| **Live Packet Capture** | **真實實作** | `LIVE_CAPTURE` (Npcap) | Raw Socket / BPF Frame Engine |
+| **Live Packet Capture** | **部分實作** | `LIVE_CAPTURE` (Npcap) | Raw Socket / BPF Frame Engine（需安裝 Npcap/WinPcap 驅動程式） |
 | **PCAP Binary Parser** | **真實實作** | `PCAP_UPLOAD` | 二進位 PCAP 解析器 / JA3/JA4 TLS 指紋 |
 | **Zeek JSON Log Ingestion** | **真實實作** | `ZEEK_LOG` | JSON 中繼串流 (`conn`, `dns`, `ssl`) |
 | **Suricata EVE IDS Ingestion** | **真實實作** | `SURICATA_EVE` | EVE JSON Alert 串流解析 |
@@ -80,8 +121,8 @@ The platform provides 11 streamlined, high-value security modules divided into t
 - **修復實作**: 改用透明可解釋的 CVSS v3.1 加權模型：`Score = 100 - (Critical×18 + High×9 + Medium×3 + OpenPorts×2)`，並於 UI 清楚揭露計算邏輯，杜絕虛構數字。
 
 ### 6. 建置自動化 CI/CD 與完整單元測試 (P3)
-- **問題現況**: 缺乏自動化持續整合測試管線。
-- **修復實作**: 建立 GitHub Actions CI 工作流程（TypeScript 型別檢查、前後端建置、測試執行）；擴充包含 Auth/RBAC、NVD API 與遙測管線在內的 40 項自動化測試套件（100% 通過）。
+- **問題現況**: 缺乏自動化持續整合測試管線與端到端驗證。
+- **修復實作**: 建立 GitHub Actions CI 工作流程（TypeScript 型別檢查、前後端建置、測試執行）；擴充包含 Auth/RBAC、NVD API、遙測採集、封包解碼、TLS 指紋、合規報告、邊界防禦與端到端 HTTP API 整合在內的 112+ 項自動化測試套件（100% 通過）。
 
 ---
 
@@ -108,7 +149,7 @@ cp server/.env.example server/.env
 ### 3. 執行自動化測試與檢查
 
 ```bash
-# 執行後端 40 項單元與資安測試
+# 執行後端 112+ 項單元、整合與資安測試
 npm --prefix server test
 
 # 驗證前端打包
@@ -133,6 +174,22 @@ npm run dev
 ```
 
 瀏覽器訪問 `http://localhost:3000` 即可進入戰情主控台。右上角可隨時切換 `Admin`、`Analyst`、`Viewer` 角色以即時體驗 RBAC 存取控制。
+
+---
+
+## 🚧 Known Limitations & Future Roadmap (已知限制與架構展望)
+
+為了符合資安工程誠信原則（Truthful Implementation），本平台誠實揭露現有架構限制與後續研發規劃：
+
+1. **記憶體滑動窗口佇列 (In-Memory Bounded Queues)**:
+   - **現況**: 當前遙測資料與事件日誌駐留於具滑動窗口上限（Bounded Capacity）的記憶體結構中，以確保單機展示輕量與零外部相依性。
+   - **展望**: 未來企業級擴充計畫引進 Elasticsearch / OpenSearch 進行 PB 級日誌長效儲存，或整合 Kafka / RabbitMQ 取代記憶體訊息佇列。
+2. **本機網卡即時抓包相依性 (Packet Capture Driver Dependency)**:
+   - **現況**: 即時網路封包擷取功能需要宿主機安裝 Npcap 或 WinPcap 驅動程式並具備系統管理員權限；在容器或無驅動環境中，系統會平滑切換至 PCAP 二進位檔案上傳解構模式。
+   - **展望**: 規劃容器化 eBPF 內核探針（Linux Kernel eBPF probes）以實現無代理輕量抓包。
+3. **多租戶隔離 (Multi-Tenancy & High Availability)**:
+   - **現況**: 本系統目前設計為單組織專用 SOC 監控平台。
+   - **展望**: 後續演進計畫引入基於 Organization ID 的邏輯資料隔離與 Redis 集中式分散式 Session 管理。
 
 ---
 

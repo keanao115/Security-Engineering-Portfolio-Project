@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Shield, Radar } from 'lucide-react';
+import { Shield, Radar, AlertOctagon } from 'lucide-react';
 import ZeekSuricataView from './ZeekSuricataView';
 import InvestigationTimelineView from './InvestigationTimelineView';
+import IncidentCasesView from './IncidentCasesView';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export default function ThreatInvestigationHub() {
@@ -11,6 +12,7 @@ export default function ThreatInvestigationHub() {
   const subTabs = [
     { id: 'ids', label: t('investigationHub.idsTab', 'Zeek & Suricata IDS 聯防監控'), icon: Shield, badge: 'EVE' },
     { id: 'timeline', label: t('investigationHub.timelineTab', '多源關聯證據時間軸 (Evidence Timeline)'), icon: Radar, badge: 'AI' },
+    { id: 'incidents', label: t('investigationHub.incidentsTab', 'SOC 事件工單閉環 (Incident Cases)'), icon: AlertOctagon, badge: 'SOAR' },
   ];
 
   return (
@@ -23,7 +25,7 @@ export default function ThreatInvestigationHub() {
             {t('investigationHub.title', 'IDS 聯防與事件威脅調查 (Threat Investigation Hub)')}
           </h2>
           <p className="text-xs text-slate-400 font-mono mt-0.5">
-            即時彙整 Zeek 協定中繼日誌、Suricata EVE 告警與多維度事件時序關聯證據鏈
+            即時彙整 Zeek 協定中繼日誌、Suricata EVE 告警、多維度事件時序關聯證據鏈與事件處置工單生命週期
           </p>
         </div>
 
@@ -57,6 +59,7 @@ export default function ThreatInvestigationHub() {
       {/* Tab Contents */}
       {activeSubTab === 'ids' && <ZeekSuricataView />}
       {activeSubTab === 'timeline' && <InvestigationTimelineView />}
+      {activeSubTab === 'incidents' && <IncidentCasesView />}
     </div>
   );
 }

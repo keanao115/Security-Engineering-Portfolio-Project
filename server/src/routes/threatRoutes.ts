@@ -2,9 +2,28 @@ import { Request, Response, Router } from 'express';
 import { generateDefensiveAiAnalysis } from '../services/aiAnalysisService.js';
 import { memoryDb } from '../db/client.js';
 import { requireRole } from '../middleware/auth.js';
+import { scanRateLimiter } from '../middleware/rateLimiter.js';
+import { RiskScoringService } from '../services/riskScoringService.js';
+import { lookupIpGeo, isPrivateIp } from '../services/geoIpService.js';
+import { isIpInAuthorizedScope } from '../services/assetDiscoveryService.js';
 import net from 'net';
+import dns from 'dns';
 
 export const threatRouter = Router();
+
+// GET /api/threats/risk-score — Centralized Explainable Risk Score
+threatRouter.get('/risk-score', requireRole(['Admin', 'Analyst', 'Viewer']), (_req: Request, res: Response) => {
+  const result = RiskScoringService.evaluateSystemPosture();
+  return res.json(result);
+});
+
+// GET /api/threats/geoip/:ip — Real GeoIP Lookup with LRU cache
+threatRouter.get('/geoip/:ip', requireRole(['Admin', 'Analyst', 'Viewer']), async (req: Request, res: Response) => {
+  const ip = req.params.ip;
+  if (!ip) return res.status(400).json({ error: 'IP address is required' });
+  const geo = await lookupIpGeo(ip);
+  return res.json(geo);
+});
 
 threatRouter.post('/analyze', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
   const { logs, findings, scan } = req.body;
@@ -18,10 +37,21 @@ threatRouter.post('/analyze', requireRole(['Admin', 'Analyst']), (req: Request, 
   return res.json(result);
 });
 
-threatRouter.get('/scan', requireRole(['Admin', 'Analyst']), async (req: Request, res: Response) => {
+threatRouter.get('/scan', scanRateLimiter, requireRole(['Admin', 'Analyst']), async (req: Request, res: Response) => {
   const targetHost = ((req.query.target as string) || '127.0.0.1').trim().toLowerCase();
 
   // ─── SSRF & Input Validation Guard ───────────────────────────────────────────
+  // Prohibit integer, octal, or hexadecimal IP notation bypasses
+  if (
+    /^(0x[0-9a-f]+|\d+)$/i.test(targetHost) ||
+    /(^|\.)0x[0-9a-f]+(\.|$)/i.test(targetHost) ||
+    /(^|\.)0\d+(\.|$)/.test(targetHost)
+  ) {
+    return res.status(400).json({
+      error: 'Integer, octal, or hexadecimal IP notation is prohibited (SSRF Protection).'
+    });
+  }
+
   // Block link-local addresses, cloud metadata endpoints, and invalid formats
   const isInvalidFormat = !/^[a-z0-9.-]+$/.test(targetHost) || targetHost.length > 253;
   const isRestrictedTarget =
@@ -35,6 +65,44 @@ threatRouter.get('/scan', requireRole(['Admin', 'Analyst']), async (req: Request
     return res.status(400).json({
       error: 'Invalid or restricted target host (SSRF Protection). Cloud metadata and link-local ranges are blocked.'
     });
+  }
+
+  // ─── Scope Whitelist & Scope Authorization Guard ──────────────────────────
+  const isDirectIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(targetHost);
+  if (isDirectIp) {
+    if (!isPrivateIp(targetHost) && !isIpInAuthorizedScope(targetHost)) {
+      return res.status(403).json({
+        error: 'Target host is outside authorized scope whitelist. Probing public external IP addresses is prohibited (Scope Violation).'
+      });
+    }
+  }
+
+  // DNS Rebinding validation & Scope Enforcement: resolve hostname to verify resolved IP is safe
+  if (targetHost !== 'localhost' && targetHost !== '127.0.0.1') {
+    try {
+      const resolved = await dns.promises.lookup(targetHost);
+      const resolvedIp = resolved.address;
+      if (
+        resolvedIp === '0.0.0.0' ||
+        resolvedIp.startsWith('169.254.') ||
+        resolvedIp.startsWith('224.')
+      ) {
+        return res.status(400).json({
+          error: 'Resolved target IP points to restricted cloud metadata or link-local range (SSRF Protection).'
+        });
+      }
+
+      if (!isPrivateIp(resolvedIp) && !isIpInAuthorizedScope(resolvedIp) && resolvedIp !== '127.0.0.1') {
+        return res.status(403).json({
+          error: `Resolved target IP (${resolvedIp}) is outside authorized internal scope whitelist. Scanning public external hosts is prohibited (Scope Violation).`
+        });
+      }
+    } catch {
+      // Host resolution failed or offline
+      if (!isDirectIp) {
+        return res.status(400).json({ error: `Could not resolve hostname '${targetHost}'. Probe aborted.` });
+      }
+    }
   }
 
   const portsToScan = [

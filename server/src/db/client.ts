@@ -18,16 +18,8 @@ export const pool = new Pool({
 
 // In-Memory Data Store Fallback for local execution
 export const memoryDb = {
-  users: [
-    {
-      id: 1,
-      username: 'admin',
-      email: 'admin@soc.corp',
-      password_hash: '$2a$10$WpZJd90kX8Gz1wKz.e2D4e5d5F6g7H8i9J0k1L2m3N4o5P6q7R8s9', // hashed 'admin123'
-      role: 'Admin',
-      created_at: new Date().toISOString(),
-    }
-  ],
+  // Note: User authentication is handled exclusively by userService.ts (scrypt-hashed in-memory Map).
+  // There is no users array here — do not add one.
   assets: [] as any[],
   findings: [] as any[],
   logs: [] as any[],
@@ -38,7 +30,44 @@ export const memoryDb = {
   zeekEvents: [] as any[],
   suricataEvents: [] as any[],
   captureSessions: [] as any[],
+  incidents: [
+    {
+      id: 'INC-2026-001',
+      title: 'Active Cobalt Strike Beaconing & Port Scan Anomalies',
+      severity: 'Critical',
+      status: 'Investigating',
+      assignedTo: 'SOC Incident Lead Analyst',
+      sourceIp: '185.220.101.5',
+      targetIp: '192.168.1.105',
+      mitreTechnique: 'T1071.001 (Web Protocols)',
+      summary: 'Automated correlation engine flagged correlated C2 beaconing attempts on non-standard egress port with lateral movement attempts.',
+      notes: ['IP isolated on perimeter firewall', 'Target host memory dump scheduled'],
+      createdAt: new Date(Date.now() - 3600000).toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+  ] as any[],
 };
+
+/**
+ * Sliding Window FIFO queue bound to prevent memory leak (OOM) under continuous packet/log ingestion
+ */
+export function pushBounded<T>(targetArray: T[], item: T, maxSize: number = 1000): void {
+  targetArray.push(item);
+  if (targetArray.length > maxSize) {
+    targetArray.splice(0, targetArray.length - maxSize);
+  }
+}
+
+/**
+ * Sliding Window FIFO queue for batch items to prevent memory leak (OOM) under bulk ingestion
+ */
+export function pushBatchBounded<T>(targetArray: T[], items: T[], maxSize: number = 1000): void {
+  if (!items || items.length === 0) return;
+  targetArray.push(...items);
+  if (targetArray.length > maxSize) {
+    targetArray.splice(0, targetArray.length - maxSize);
+  }
+}
 
 let isPgConnected = false;
 
@@ -178,6 +207,20 @@ export async function initDbConnection() {
           dedup_hash VARCHAR(64),
           dedup_count INT DEFAULT 1,
           raw_details JSONB DEFAULT '{}'::jsonb
+        );
+        CREATE TABLE IF NOT EXISTS incident_cases (
+          id VARCHAR(100) PRIMARY KEY,
+          title VARCHAR(255) NOT NULL,
+          severity VARCHAR(50) NOT NULL,
+          status VARCHAR(50) DEFAULT 'New',
+          assigned_to VARCHAR(100) DEFAULT 'SOC Incident Lead Analyst',
+          source_ip VARCHAR(45),
+          target_ip VARCHAR(45),
+          mitre_technique VARCHAR(100),
+          summary TEXT,
+          notes JSONB DEFAULT '[]'::jsonb,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
       `);
 

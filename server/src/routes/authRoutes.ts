@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express';
 import { generateToken, authenticateJwt, AuthenticatedRequest } from '../middleware/auth.js';
 import { verifyCredentials, UserRecord } from '../services/userService.js';
 import { loadPlatformConfig } from '../config/platformConfig.js';
+import { authRateLimiter } from '../middleware/rateLimiter.js';
 
 export const authRouter = Router();
 
@@ -11,17 +12,21 @@ export const authRouter = Router();
  * - Client cannot forge or request arbitrary roles in request body.
  * - Roles are determined strictly by the server-side identity store.
  * - Passwords are cryptographically verified using scrypt hashes.
+ * - Brute-force rate limiting enforced via authRateLimiter.
  */
-authRouter.post('/login', (req: Request, res: Response) => {
+authRouter.post('/login', authRateLimiter, (req: Request, res: Response) => {
   const { username, password } = req.body;
 
-  if (!username) {
+  if (!username || typeof username !== 'string' || !username.trim()) {
     return res.status(400).json({ error: 'Username is required', code: 'AUTH_MISSING_USERNAME' });
   }
 
+  if (!password || typeof password !== 'string' || !password.trim()) {
+    return res.status(400).json({ error: 'Password is required', code: 'AUTH_MISSING_PASSWORD' });
+  }
+
   // Cryptographically verify credentials against server identity store
-  // Defaults password to username if omitted in headless test runners
-  const user = verifyCredentials(username, password || username);
+  const user = verifyCredentials(username.trim(), password);
 
   if (!user) {
     return res.status(401).json({

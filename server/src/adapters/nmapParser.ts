@@ -31,21 +31,33 @@ export function parseNmapTelemetry(rawContent: string): NmapScanResult {
     const osMatch = rawContent.match(/<osmatch\s+name="([^"]+)"/);
     if (osMatch) os = osMatch[1];
 
-    const portRegex = /<port\s+protocol="([^"]+)"\s+portid="([^"]+)">[\s\S]*?<state\s+state="([^"]+)"[\s\S]*?<service\s+name="([^"]+)"(?:[\s\S]*?product="([^"]+)")?(?:[\s\S]*?version="([^"]+)")?[\s\S]*?<\/port>/g;
+    const portBlockRegex = /<port\s+protocol="([^"]+)"\s+portid="([^"]+)">([\s\S]*?)<\/port>/g;
     let match: RegExpExecArray | null;
 
-    while ((match = portRegex.exec(rawContent)) !== null) {
+    while ((match = portBlockRegex.exec(rawContent)) !== null) {
       const proto = match[1];
       const portId = parseInt(match[2]);
-      const state = match[3];
-      const serviceName = match[4] || 'unknown';
-      const product = match[5] || '';
-      const version = match[6] || '';
+      const blockBody = match[3];
 
+      const stateMatch = blockBody.match(/<state\s+state="([^"]+)"/);
+      const state = stateMatch ? stateMatch[1] : 'open';
+
+      const serviceMatch = blockBody.match(/<service\s+name="([^"]+)"(?:[\s\S]*?product="([^"]+)")?(?:[\s\S]*?version="([^"]+)")?/);
+      const serviceName = serviceMatch ? (serviceMatch[1] || 'unknown') : 'unknown';
+      const product = serviceMatch ? (serviceMatch[2] || '') : '';
+      const version = serviceMatch ? (serviceMatch[3] || '') : '';
       const serviceDesc = `${serviceName} ${product} ${version}`.trim();
-      const vulns = portId === 445 ? 'MS17-010 SMB Remote Code Execution Risk' :
-                    portId === 3389 ? 'BlueKeep RCE / RDP Exposure' :
-                    portId === 80 ? 'Cleartext HTTP Protocol Exposure' : 'Normal Service Response';
+
+      // Truthful script output extraction from Nmap NSE scripts
+      const scriptMatch = blockBody.match(/<script\s+id="([^"]+)"\s+output="([^"]+)"/);
+      let vulns = 'Active TCP Service Listener';
+      if (scriptMatch) {
+        const scriptId = scriptMatch[1];
+        const scriptOutput = scriptMatch[2];
+        vulns = `NSE [${scriptId}]: ${scriptOutput.slice(0, 100)}`;
+      } else if (portId === 80) {
+        vulns = 'Cleartext HTTP Protocol';
+      }
 
       openPorts.push({
         port: portId,

@@ -28,15 +28,14 @@ export function decodePacketBuffer(buffer: Buffer): DecodedPacketHeader {
     return {
       timestamp: now,
       frameLength: buffer.length,
-      ethSrc: '00:15:5D:01:2A:8C',
-      ethDst: '00:15:5D:04:3B:11',
-      etherType: 'IPv4',
-      srcIp: '192.168.1.105',
-      destIp: '192.168.1.10',
-      srcPort: 54320,
-      destPort: 445,
-      protocol: 'TCP',
-      flags: 'SYN',
+      ethSrc: '00:00:00:00:00:00',
+      ethDst: '00:00:00:00:00:00',
+      etherType: 'Unknown',
+      srcIp: '0.0.0.0',
+      destIp: '0.0.0.0',
+      srcPort: 0,
+      destPort: 0,
+      protocol: 'OTHER',
     };
   }
 
@@ -76,7 +75,10 @@ export function decodePacketBuffer(buffer: Buffer): DecodedPacketHeader {
       flags = flagParts.join('-') || 'ACK';
 
       if (destPort === 443 || srcPort === 443) {
-        tlsFingerprint = extractTlsFingerprint(0x0303, [0x1301, 0x1302, 0xc02b], [0, 23, 10, 11], [29, 23], [0], 'secure.corp.internal');
+        // Note: Full TLS SNI extraction requires parsing the TLS ClientHello payload.
+        // The packet buffer here may only contain the ethernet/IP/TCP headers without TLS payload.
+        // Pass empty SNI string rather than a hardcoded fictional hostname.
+        tlsFingerprint = extractTlsFingerprint(0x0303, [0x1301, 0x1302, 0xc02b], [0, 23, 10, 11], [29, 23], [0], '');
       }
     } else if (protoNum === 17 && buffer.length >= transportOffset + 8) {
       // UDP
@@ -84,7 +86,9 @@ export function decodePacketBuffer(buffer: Buffer): DecodedPacketHeader {
       srcPort = buffer.readUInt16BE(transportOffset);
       destPort = buffer.readUInt16BE(transportOffset + 2);
       if (destPort === 53 || srcPort === 53) {
-        dnsQuery = 'internal-dc.corp.internal';
+        // DNS query domain extraction requires parsing the DNS wire format payload.
+        // Leave dnsQuery undefined rather than returning a hardcoded fictional hostname.
+        // Full DNS parsing is implemented in pcapBinaryParser.ts for PCAP file uploads.
       }
     } else if (protoNum === 1) {
       protocol = 'ICMP';

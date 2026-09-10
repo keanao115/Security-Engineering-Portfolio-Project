@@ -38,19 +38,37 @@ export function parseZapReport(rawContent: string): ZapFinding[] {
       });
     });
   } catch (err) {
-    // Basic regex fallback if report is XML
-    findings.push({
-      id: 'ZAP-XML-1',
-      sourceTool: 'OWASP ZAP XML Ingestion',
-      cveId: 'CWE-693',
-      title: 'Missing Content-Security-Policy (CSP) Header',
-      severity: 'Medium',
-      cvssScore: 5.3,
-      affectedResource: 'https://web-prod-01.corp.internal',
-      description: 'The Content-Security-Policy header is missing from web responses.',
-      evidence: 'HTTP/1.1 200 OK without Content-Security-Policy header',
-      mitigation: 'Configure web server (Nginx/Apache) to return CSP header restricting script origins.'
-    });
+    // Attempt XML alertitem parsing if report is XML
+    if (rawContent.includes('<alertitem>') || rawContent.includes('<OWASPZAPReport>')) {
+      const alertBlocks = rawContent.split('</alertitem>');
+      alertBlocks.forEach((block, idx) => {
+        if (!block.includes('<alertitem>')) return;
+        const nameMatch = block.match(/<alert>([^<]+)<\/alert>/);
+        const riskMatch = block.match(/<riskdesc>([^<]+)<\/riskdesc>/);
+        const cweMatch = block.match(/<cweid>([^<]+)<\/cweid>/);
+        const urlMatch = block.match(/<uri>([^<]+)<\/uri>/);
+        const descMatch = block.match(/<desc>([^<]+)<\/desc>/);
+        const solMatch = block.match(/<solution>([^<]+)<\/solution>/);
+
+        const risk = riskMatch ? riskMatch[1] : 'Medium';
+        const severity = risk.toLowerCase().includes('high') ? 'High' :
+                         risk.toLowerCase().includes('critical') ? 'Critical' :
+                         risk.toLowerCase().includes('low') ? 'Low' : 'Medium';
+
+        findings.push({
+          id: `ZAP-XML-${idx + 1}`,
+          sourceTool: 'OWASP ZAP (XML)',
+          cveId: cweMatch ? `CWE-${cweMatch[1]}` : 'CWE-200',
+          title: nameMatch ? nameMatch[1] : 'Web Security Finding',
+          severity,
+          cvssScore: severity === 'Critical' ? 9.0 : severity === 'High' ? 7.5 : 5.0,
+          affectedResource: urlMatch ? urlMatch[1] : 'Web Application Endpoint',
+          description: descMatch ? descMatch[1] : 'Vulnerability identified by OWASP ZAP XML report',
+          evidence: 'Identified by automated dynamic application security scan',
+          mitigation: solMatch ? solMatch[1] : 'Enforce defensive security headers and sanitization.'
+        });
+      });
+    }
   }
 
   return findings;

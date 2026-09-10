@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Shield, AlertTriangle, CheckCircle, Filter, RefreshCw, Zap, Clock, Activity, Search, PlusCircle, Layers } from 'lucide-react';
+import { Shield, AlertTriangle, CheckCircle, Filter, RefreshCw, Zap, Clock, Activity, Search, PlusCircle, Layers, ArrowUpRight, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { fetchSiemEvents, fetchMultiVectorCorrelation, connectLiveTelemetryStream, authFetch } from '../services/apiClient';
+import { fetchSiemEvents, fetchMultiVectorCorrelation, connectLiveTelemetryStream, authFetch, escalateEventToIncident } from '../services/apiClient';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const SEV_COLORS = { Critical: '#ef4444', High: '#f59e0b', Medium: '#06b6d4', Low: '#10b981', Info: '#64748b' };
@@ -31,14 +31,6 @@ export default function SiemEventConsole() {
   const { t, language } = useLanguage();
   const isZh = language === 'zh-TW';
 
-  const severityBarData = [
-    { name: isZh ? '極高' : 'Critical', count: 2 },
-    { name: isZh ? '高' : 'High', count: 4 },
-    { name: isZh ? '中' : 'Medium', count: 6 },
-    { name: isZh ? '低' : 'Low', count: 10 },
-    { name: isZh ? '資訊' : 'Info', count: 18 },
-  ];
-
   const [events, setEvents] = useState(FALLBACK_EVENTS);
   const [correlation, setCorrelation] = useState(null);
   const [sevFilter, setSevFilter] = useState('ALL');
@@ -49,7 +41,19 @@ export default function SiemEventConsole() {
   const [ingestStatus, setIngestStatus] = useState('');
   const [wsStatus, setWsStatus] = useState(isZh ? '連線中…' : 'Connecting…');
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [escalatingId, setEscalatingId] = useState(null);
+  const [escalatedMap, setEscalatedMap] = useState({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const wsRef = useRef(null);
+
+  const severityBarData = [
+    { name: isZh ? '極高' : 'Critical', count: events.filter(e => e.severity === 'Critical').length },
+    { name: isZh ? '高' : 'High', count: events.filter(e => e.severity === 'High').length },
+    { name: isZh ? '中' : 'Medium', count: events.filter(e => e.severity === 'Medium').length },
+    { name: isZh ? '低' : 'Low', count: events.filter(e => e.severity === 'Low').length },
+    { name: isZh ? '資訊' : 'Info', count: events.filter(e => e.severity === 'Info').length },
+  ];
 
   useEffect(() => {
     fetchSiemEvents().then(data => { if (data?.events?.length > 0) setEvents(data.events); });
@@ -102,11 +106,30 @@ export default function SiemEventConsole() {
     }
   };
 
+  const handleEscalate = async (event) => {
+    const key = event.id || event.eventId || event.summary;
+    setEscalatingId(key);
+    try {
+      const res = await escalateEventToIncident(event);
+      if (res && res.incident) {
+        setEscalatedMap(prev => ({ ...prev, [key]: res.incident.id }));
+      }
+    } catch (err) {
+      alert(isZh ? `升級失敗: ${err.message}` : `Escalation failed: ${err.message}`);
+    } finally {
+      setEscalatingId(null);
+    }
+  };
+
   const allFiltered = events.filter(e =>
     (sevFilter === 'ALL' || e.severity === sevFilter) &&
     (catFilter === 'ALL' || e.sourceCategory === catFilter) &&
     (!hostSearch || e.hostName.toLowerCase().includes(hostSearch.toLowerCase()) || e.summary.toLowerCase().includes(hostSearch.toLowerCase()))
   );
+
+  const totalPages = Math.max(1, Math.ceil(allFiltered.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedEvents = allFiltered.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
 
   const criticalCount = events.filter(e => e.severity === 'Critical').length;
   const highCount = events.filter(e => e.severity === 'High').length;
@@ -256,7 +279,7 @@ export default function SiemEventConsole() {
           <input
             type="text"
             value={hostSearch}
-            onChange={e => setHostSearch(e.target.value)}
+            onChange={e => { setHostSearch(e.target.value); setCurrentPage(1); }}
             placeholder={isZh ? "搜尋主機名稱或日誌摘要..." : "Search host or summary..."}
             className="bg-slate-950 border border-slate-800 text-slate-300 text-xs font-mono rounded-lg px-3 py-1 focus:outline-none focus:border-cyan-500 w-48"
           />
@@ -264,7 +287,7 @@ export default function SiemEventConsole() {
             <Filter className="w-3.5 h-3.5" /> {isZh ? '風險等級:' : 'Severity:'}
           </span>
           {['ALL', 'Critical', 'High', 'Medium', 'Low'].map(s => (
-            <button key={s} onClick={() => setSevFilter(s)}
+            <button key={s} onClick={() => { setSevFilter(s); setCurrentPage(1); }}
               className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition-all ${sevFilter === s ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white'}`}>
               {s === 'ALL' ? t('common.all', 'ALL') : s}
             </button>
@@ -273,7 +296,7 @@ export default function SiemEventConsole() {
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-mono text-slate-400">{isZh ? '日誌來源:' : 'Source:'}</span>
           {['ALL', 'Windows_WEF', 'Sysmon', 'Linux_Auditd', 'Zeek', 'Wazuh', 'Suricata'].map(c => (
-            <button key={c} onClick={() => setCatFilter(c)}
+            <button key={c} onClick={() => { setCatFilter(c); setCurrentPage(1); }}
               className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition-all ${catFilter === c ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white'}`}>
               {c === 'ALL' ? t('common.all', 'ALL') : c.replace('_', ' ')}
             </button>
@@ -293,7 +316,7 @@ export default function SiemEventConsole() {
               {isZh ? '所有遙測資料來源均處於正常運維基線內。' : 'All telemetry sources are within operational baseline.'}
             </p>
           </div>
-        ) : allFiltered.map((event, i) => (
+        ) : paginatedEvents.map((event, i) => (
           <div key={i} className={`glass-panel p-4 rounded-2xl border transition-all hover:border-cyan-500/20 ${event.severity === 'Critical' ? 'border-red-500/30' : event.severity === 'High' ? 'border-amber-500/30' : 'border-slate-800'}`}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">
@@ -314,11 +337,85 @@ export default function SiemEventConsole() {
               </div>
             </div>
             <p className="text-xs text-slate-300 font-mono mt-2 leading-relaxed">{event.summary}</p>
-            <div className="text-[10px] text-slate-600 font-mono mt-1.5 flex items-center gap-1">
-              <Shield className="w-3 h-3" /> MITRE: {event.mitreTechnique}
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/60">
+              <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
+                <Shield className="w-3 h-3 text-slate-600" /> MITRE: {event.mitreTechnique}
+              </div>
+              <div>
+                {escalatedMap[event.id || event.eventId || event.summary] ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                    <Check className="w-3 h-3" /> {isZh ? `已成案 ${escalatedMap[event.id || event.eventId || event.summary]}` : `Escalated (${escalatedMap[event.id || event.eventId || event.summary]})`}
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => handleEscalate(event)}
+                    disabled={escalatingId === (event.id || event.eventId || event.summary)}
+                    className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded border transition-all ${
+                      event.severity === 'Critical' || event.severity === 'High'
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                        : 'bg-slate-850 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
+                    } disabled:opacity-50`}
+                    title={isZh ? '將此警報提升至資安事件工單進行閉環追蹤' : 'Escalate this alert to an incident ticket'}
+                  >
+                    <ArrowUpRight className="w-3 h-3" />
+                    {escalatingId === (event.id || event.eventId || event.summary)
+                      ? (isZh ? '成案中…' : 'Escalating…')
+                      : (isZh ? '提升為工單' : 'Escalate to Incident')}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         ))}
+
+        {/* Pagination Controls */}
+        {allFiltered.length > 0 && (
+          <div className="glass-panel p-3 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 font-mono text-xs text-slate-400">
+            <div className="flex items-center gap-2">
+              <span>
+                {isZh
+                  ? `顯示第 ${(safeCurrentPage - 1) * pageSize + 1} - ${Math.min(safeCurrentPage * pageSize, allFiltered.length)} 筆 (共 ${allFiltered.length} 筆)`
+                  : `Showing ${(safeCurrentPage - 1) * pageSize + 1} - ${Math.min(safeCurrentPage * pageSize, allFiltered.length)} of ${allFiltered.length}`}
+              </span>
+              <span className="text-slate-600">|</span>
+              <div className="flex items-center gap-1.5">
+                <span>{isZh ? '每頁:' : 'Per page:'}</span>
+                <select
+                  value={pageSize}
+                  onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                  aria-label={isZh ? '每頁顯示筆數' : 'Items per page'}
+                  className="bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-cyan-400 focus:outline-none focus:border-cyan-500"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={safeCurrentPage <= 1}
+                aria-label={isZh ? '上一頁' : 'Previous page'}
+                className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 transition-all"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-slate-300 font-bold px-1">
+                {safeCurrentPage} / {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={safeCurrentPage >= totalPages}
+                aria-label={isZh ? '下一頁' : 'Next page'}
+                className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 transition-all"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Raw Log Ingest Modal */}

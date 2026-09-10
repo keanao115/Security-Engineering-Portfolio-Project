@@ -37,11 +37,16 @@ export function createCollectorRouter(collectors: BaseCollector[]): Router {
     const totalEps = metrics.reduce((sum, m) => sum + m.eventsPerSecond, 0);
     const totalEvents = metrics.reduce((sum, m) => sum + m.eventsProcessedTotal, 0);
     const totalDropped = metrics.reduce((sum, m) => sum + m.droppedPacketsTotal, 0);
+    const queueWatermarkPercent = Math.min(
+      100,
+      parseFloat((((memoryDb.unifiedEvents.length + memoryDb.logs.length) / 2000) * 100).toFixed(1))
+    );
 
     return res.json({
       totalEventsProcessed: totalEvents,
       aggregateEventsPerSec: totalEps,
       totalDroppedPackets: totalDropped,
+      queueWatermarkPercent,
       collectors: metrics,
     });
   });

@@ -145,3 +145,20 @@ export function parsePcapMetadata(fileName: string, rawBufferText?: string): Par
 export function getPcapHistory(): ParsedPcapSummary[] {
   return pcapHistory;
 }
+
+/**
+ * Persist a real PCAP upload result into the in-memory history buffer.
+ * Called by packetRoutes.ts after a successful binary PCAP parse.
+ */
+export function addToPcapHistory(summary: ParsedPcapSummary): void {
+  pcapHistory.unshift(summary);
+  if (pcapHistory.length > 20) pcapHistory.pop();
+
+  query(
+    `INSERT INTO pcap_sessions (id, file_name, total_packets, duration_sec, uploaded_at, protocol_distribution, dns_queries, http_sessions, tls_handshakes, flagged_threats)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    [summary.id, summary.pcapFileName, summary.totalPackets, summary.captureDurationSec, summary.uploadedAt,
+     JSON.stringify(summary.protocolDistribution), JSON.stringify(summary.dnsQueries),
+     JSON.stringify(summary.httpSessions), JSON.stringify(summary.tlsHandshakes), JSON.stringify(summary.flaggedThreats)]
+  ).catch(() => {});
+}

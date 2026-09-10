@@ -1,6 +1,6 @@
 import { Request, Response, Router } from 'express';
 import multer from 'multer';
-import { parsePcapMetadata, getPcapHistory } from '../services/packetAnalysisService.js';
+import { parsePcapMetadata, getPcapHistory, addToPcapHistory, ParsedPcapSummary } from '../services/packetAnalysisService.js';
 import { parsePcapBuffer } from '../services/pcapBinaryParser.js';
 import { createPcapUploadProvenance } from '../provenance/provenanceFactory.js';
 import { requireRole } from '../middleware/auth.js';
@@ -81,6 +81,9 @@ packetRouter.post('/upload', requireRole(['Admin', 'Analyst']), upload.single('p
       realParse: true,
     };
 
+    // Persist to history so /api/packets/history and /api/packets/stats return real data
+    addToPcapHistory(summary as unknown as ParsedPcapSummary);
+
     return res.json({
       message: `PCAP file "${fileName}" parsed successfully`,
       summary,
@@ -92,26 +95,26 @@ packetRouter.post('/upload', requireRole(['Admin', 'Analyst']), upload.single('p
 });
 
 // GET /api/packets/sample — Demo sample using legacy service
-packetRouter.get('/sample', (req: Request, res: Response) => {
+packetRouter.get('/sample', requireRole(['Admin', 'Analyst', 'Viewer']), (req: Request, res: Response) => {
   const summary = parsePcapMetadata('enterprise_demo_capture.pcap');
   return res.json({ ...summary, realParse: false, note: 'Sample data — upload a real .pcap file to /api/packets/upload' });
 });
 
 // POST /api/packets/analyze-pcap — Legacy text-based route (kept for compatibility)
-packetRouter.post('/analyze-pcap', (req: Request, res: Response) => {
+packetRouter.post('/analyze-pcap', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
   const { fileName, rawBufferText } = req.body;
   const summary = parsePcapMetadata(fileName || 'uploaded_capture.pcap', rawBufferText);
   return res.json({ message: 'PCAP metadata generated', summary, realParse: false });
 });
 
 // GET /api/packets/history — Past PCAP session list
-packetRouter.get('/history', (req: Request, res: Response) => {
+packetRouter.get('/history', requireRole(['Admin', 'Analyst', 'Viewer']), (req: Request, res: Response) => {
   const history = getPcapHistory();
   return res.json({ total: history.length, sessions: history });
 });
 
 // GET /api/packets/stats — Aggregate stats
-packetRouter.get('/stats', (req: Request, res: Response) => {
+packetRouter.get('/stats', requireRole(['Admin', 'Analyst', 'Viewer']), (req: Request, res: Response) => {
   const history = getPcapHistory();
   const totalAnalyzed = history.length;
   const totalThreats = history.reduce((acc, s) => acc + s.flaggedThreats.length, 0);

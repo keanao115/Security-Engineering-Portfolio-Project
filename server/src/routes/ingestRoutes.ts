@@ -5,7 +5,7 @@ import { parseSuricataEveJson } from '../adapters/suricataParser.js';
 import { parseNmapTelemetry } from '../adapters/nmapParser.js';
 import { parseZapReport } from '../adapters/zapParser.js';
 import { parseYaraSigmaResults } from '../adapters/yaraSigmaParser.js';
-import { memoryDb } from '../db/client.js';
+import { memoryDb, pushBatchBounded } from '../db/client.js';
 import { scanWithSigmaRules, getSigmaRuleList } from '../services/sigmaRuleEngine.js';
 import { ingestSiemEvent } from '../services/siemCollectorService.js';
 import { enrichWithThreatIntel } from '../services/threatIntelService.js';
@@ -23,23 +23,23 @@ ingestRouter.post('/logs', requireRole(['Admin', 'Analyst']), (req: Request, res
   }
 
   let winLogs: any[] = [];
-  let lnxLogs: any[] = [];;
+  let lnxLogs: any[] = [];
   let eveAlerts: any[] = [];
   let detections: any[] = [];
 
   // ── Parse by type ─────────────────────────────────────────────────────────
   if (logType === 'windows' || logText.includes('<Event')) {
     winLogs = parseWindowsLogTelemetry(logText);
-    memoryDb.logs.push(...winLogs);
+    pushBatchBounded(memoryDb.logs, winLogs);
   } else if (logType === 'suricata' || logText.includes('event_type')) {
     eveAlerts = parseSuricataEveJson(logText);
-    memoryDb.logs.push(...eveAlerts);
+    pushBatchBounded(memoryDb.logs, eveAlerts);
   } else if (logType === 'yara' || logType === 'sigma') {
     detections = parseYaraSigmaResults(logText);
-    memoryDb.logs.push(...detections);
+    pushBatchBounded(memoryDb.logs, detections);
   } else {
     lnxLogs = parseLinuxLogTelemetry(logText);
-    memoryDb.logs.push(...lnxLogs);
+    pushBatchBounded(memoryDb.logs, lnxLogs);
   }
 
   const allParsed = [...winLogs, ...lnxLogs, ...eveAlerts, ...detections];
@@ -122,7 +122,7 @@ ingestRouter.post('/zap', requireRole(['Admin', 'Analyst']), (req: Request, res:
   if (!reportContent) return res.status(400).json({ error: 'ZAP reportContent required' });
 
   const findings = parseZapReport(reportContent);
-  memoryDb.findings.push(...findings);
+  pushBatchBounded(memoryDb.findings, findings);
   return res.json({ message: 'OWASP ZAP report ingested successfully', count: findings.length, findings });
 });
 

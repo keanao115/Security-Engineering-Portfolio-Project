@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FileSpreadsheet, Download, Printer, ShieldCheck, FileText, Check } from 'lucide-react';
 import jsPDF from 'jspdf';
-import { generatePdfReport } from '../services/apiClient';
+import { generatePdfReport, fetchRiskScore } from '../services/apiClient';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export default function IncidentReportsView({ anomalies }) {
@@ -67,10 +67,18 @@ This report details the technical security findings and defensive telemetry eval
   const reportMarkdown = language === 'zh-TW' ? reportMarkdownZh : reportMarkdownEn;
 
   const handleDownloadPdf = async () => {
+    let currentRiskScore = 100;
+    try {
+      const riskData = await fetchRiskScore();
+      if (riskData && typeof riskData.overallScore === 'number') {
+        currentRiskScore = riskData.overallScore;
+      }
+    } catch {}
+
     const apiBlob = await generatePdfReport({
       title: language === 'zh-TW' ? "CYBERMIND SOC 平台 - 資安稽核應變報告" : "CYBERMIND SOC PLATFORM - SECURITY AUDIT REPORT",
       classification: language === 'zh-TW' ? "機密文件 / 僅限資安長 (CISO) 閱覽" : "CONFIDENTIAL / CISO AUDIT",
-      riskScore: 92,
+      riskScore: currentRiskScore,
       summary: reportMarkdown
     });
 

@@ -34,8 +34,8 @@ discoveryRouter.post('/sweep', requireRole(['Admin', 'Analyst']), async (req: Re
   }
 });
 
-// GET /api/discovery/localhost — REAL OS-based local network discovery
-discoveryRouter.get('/localhost', async (req: Request, res: Response) => {
+// GET /api/discovery/localhost — REAL OS-based local network discovery (Admin & Analyst Only)
+discoveryRouter.get('/localhost', requireRole(['Admin', 'Analyst']), async (req: Request, res: Response) => {
   try {
     const result = await buildRealAssetList();
     return res.json({
@@ -54,8 +54,8 @@ discoveryRouter.get('/localhost', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/discovery/arp — Raw ARP table
-discoveryRouter.get('/arp', async (req: Request, res: Response) => {
+// GET /api/discovery/arp — Raw ARP table (Admin & Analyst Only)
+discoveryRouter.get('/arp', requireRole(['Admin', 'Analyst']), async (req: Request, res: Response) => {
   try {
     const entries = await getArpTable();
     return res.json({ total: entries.length, entries });
@@ -64,8 +64,8 @@ discoveryRouter.get('/arp', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/discovery/netstat — Real active connections
-discoveryRouter.get('/netstat', async (req: Request, res: Response) => {
+// GET /api/discovery/netstat — Real active connections (Admin & Analyst Only)
+discoveryRouter.get('/netstat', requireRole(['Admin', 'Analyst']), async (req: Request, res: Response) => {
   try {
     const conns = await getActiveConnections();
     const listening = conns.filter(c => c.state === 'LISTENING' || c.state === 'LISTEN');

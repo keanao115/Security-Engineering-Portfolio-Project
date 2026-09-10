@@ -32,28 +32,24 @@ export function isChineseText(text: string): boolean {
  * Gathers and normalizes live SOC telemetry from context or active in-memory stores
  */
 export function getLiveTelemetrySnapshot(context?: ThreatAnalysisContext) {
-  const siemEvents = (context?.siemEvents && context.siemEvents.length > 0)
+  const siemEvents = (context?.siemEvents !== undefined)
     ? context.siemEvents
     : getSiemEvents();
 
-  const findings = (context?.findings && context.findings.length > 0)
+  const findings = (context?.findings !== undefined)
     ? context.findings
     : memoryDb.findings;
 
-  const logs = (context?.logs && context.logs.length > 0)
+  const logs = (context?.logs !== undefined)
     ? context.logs
     : memoryDb.logs;
 
   const scan = context?.scan || {
-    host: '192.168.1.10',
-    openPorts: [
-      { port: 80, protocol: 'tcp', service: 'http (Apache 2.4.49)' },
-      { port: 445, protocol: 'tcp', service: 'microsoft-ds (SMBv1)' },
-      { port: 3389, protocol: 'tcp', service: 'ms-wbt-server (RDP)' },
-    ]
+    host: 'LocalHost',
+    openPorts: []
   };
 
-  const assets = (context?.assets && context.assets.length > 0)
+  const assets = (context?.assets !== undefined)
     ? context.assets
     : memoryDb.assets;
 
@@ -82,12 +78,15 @@ export function runLocalSocInference(userMessage: string, context?: ThreatAnalys
 
   // 1. User asks specifically about Event 4625 / Brute force / 登入失敗
   if (lower.includes('4625') || lower.includes('brute') || lower.includes('logon fail') || userMessage.includes('登入失敗') || userMessage.includes('密碼猜測')) {
+    const srcIp4625 = event4625?.rawDetails?.IpAddress || (event4625 as any)?.ip || 'Unspecified IP';
+    const targetUser4625 = event4625?.rawDetails?.TargetUserName || (event4625 as any)?.user || 'Unknown User';
+
     const liveNoteZh = event4625
-      ? `\n\n> 實時遙測命中：當前系統於主機 \`${event4625.hostName}\` 偵測到 ${event4625.dedupCount || 14} 次失敗登入紀錄（來源 IP: \`${event4625.rawDetails?.IpAddress || '192.168.1.155'}\`，目標帳號: \`${event4625.rawDetails?.TargetUserName || 'Administrator'}\`）。`
+      ? `\n\n> 實時遙測命中：當前系統於主機 \`${event4625.hostName}\` 偵測到 ${event4625.dedupCount || 1} 次失敗登入紀錄（來源 IP: \`${srcIp4625}\`，目標帳號: \`${targetUser4625}\`）。`
       : `\n\n> 實時遙測提示：當前 SIEM 事件庫中正監控 Windows Event 4625 訊號。`;
 
     const liveNoteEn = event4625
-      ? `\n\n> Live Telemetry Grounding: Detected ${event4625.dedupCount || 14} failed logon events on host \`${event4625.hostName}\` from source IP \`${event4625.rawDetails?.IpAddress || '192.168.1.155'}\` targeting \`${event4625.rawDetails?.TargetUserName || 'Administrator'}\`.`
+      ? `\n\n> Live Telemetry Grounding: Detected ${event4625.dedupCount || 1} failed logon events on host \`${event4625.hostName}\` from source IP \`${srcIp4625}\` targeting \`${targetUser4625}\`.`
       : `\n\n> Live Telemetry Grounding: Monitoring Windows Event ID 4625 authentication events.`;
 
     if (isZh) {
@@ -100,7 +99,7 @@ ${liveNoteZh}
 短時間內大量產生的 4625 事件表示系統正遭受憑證填充 (Credential Stuffing) 或密碼噴灑 (Password Spray) 攻擊。此攻擊來源試圖透過暴力破解獲取特權網域管理身分。
 
 **SOC 即時防禦處置指引：**
-1. **阻斷來源位址**：立即於外部周邊防火牆封鎖惡意來源 IP \`${event4625?.rawDetails?.IpAddress || '192.168.1.155'}\`。
+1. **阻斷來源位址**：立即於外部周邊防火牆封鎖惡意來源 IP \`${srcIp4625}\`。
 2. **鎖定原則強制執行**：檢查網域群組原則 (GPO)，落實「帳號鎖定原則 (5 次失敗即鎖定 30 分鐘)」。
 3. **時序多源關聯**：交叉比對同時間戳記是否出現 Event ID 4624 (成功登入)，以確認攻擊者是否已突破防線並展開內部橫向移動。
 
@@ -116,7 +115,7 @@ ${liveNoteEn}
 High-frequency Event ID 4625 bursts represent active credential stuffing or brute-force spray attempts targeting privileged domain accounts.
 
 **Immediate SOC Remediation:**
-1. **Perimeter Block**: Null-route or firewall block malicious source IP \`${event4625?.rawDetails?.IpAddress || '192.168.1.155'}\`.
+1. **Perimeter Block**: Null-route or firewall block malicious source IP \`${srcIp4625}\`.
 2. **Account Lockout Policy**: Enforce 5 failed attempt threshold with a 30-minute lockout window via GPO.
 3. **Timeline Cross-Correlation**: Pivot against Event ID 4624 (Logon Success) to rule out account compromise and lateral expansion.
 
@@ -386,10 +385,10 @@ export function runLocalTelemetryAssessment(telemetry?: ThreatAnalysisContext): 
   const criticalVulnerabilities = data.findings
     .filter((f: any) => (f.cvss || 0) >= 7.0 || f.severity === 'Critical' || f.severity === 'High')
     .map((f: any) => ({
-      cveId: f.cveId || 'CVE-CORRELATED',
-      cvss: f.cvss || 9.0,
-      product: f.name || f.product || 'Unknown Software',
-      host: f.host || '192.168.1.50',
+      cveId: f.cveId || f.cve_id || 'CVE-CORRELATED',
+      cvss: f.cvss || f.cvss_score || 9.0,
+      product: f.name || f.title || f.product || 'Monitored Software',
+      host: f.host || f.affected_resource || 'Discovered Endpoint',
     }));
 
   const correlatedIncidents = data.siemEvents.slice(0, 5).map((e: any) => ({
@@ -399,12 +398,35 @@ export function runLocalTelemetryAssessment(telemetry?: ThreatAnalysisContext): 
     details: e.summary,
   }));
 
-  const mitreCoverage = [
-    { technique: 'T1110.001', description: 'Password Guessing / Credential Stuffing' },
-    { technique: 'T1548.003', description: 'Sudo and Sudo Caching Abuse' },
-    { technique: 'T1059.001', description: 'PowerShell Encoded Script Execution' },
-    { technique: 'T1021.002', description: 'SMB Remote Service Lateral Movement' },
-  ];
+  const extractedTechniques = new Map<string, string>();
+  data.siemEvents.forEach((e: any) => {
+    if (e.mitreTechnique && e.mitreTechnique !== 'N/A' && e.mitreTechnique.trim().length > 0) {
+      const parts = e.mitreTechnique.split(' ');
+      const code = parts[0];
+      const desc = parts.slice(1).join(' ') || e.summary || 'Correlated in telemetry stream';
+      extractedTechniques.set(code, desc);
+    }
+  });
+
+  const mitreCoverage = extractedTechniques.size > 0
+    ? Array.from(extractedTechniques.entries()).map(([technique, description]) => ({ technique, description }))
+    : [{ technique: 'None', description: 'No active MITRE ATT&CK techniques correlated in current telemetry stream' }];
+
+  const prioritizedRemediations: string[] = [];
+  if (criticalVulnerabilities.length > 0) {
+    const topVuln = criticalVulnerabilities[0];
+    prioritizedRemediations.push(`Apply vendor patch for ${topVuln.product} (${topVuln.cveId}) on host ${topVuln.host}.`);
+  }
+  if (openPortCount > 0) {
+    prioritizedRemediations.push(`Review exposure of ${openPortCount} active service listeners and restrict perimeter access.`);
+  }
+  if (criticalEvents.length > 0) {
+    prioritizedRemediations.push(`Investigate critical security event on host ${criticalEvents[0].hostName}.`);
+  }
+  if (prioritizedRemediations.length === 0) {
+    prioritizedRemediations.push('Maintain continuous telemetry ingestion across network interfaces and SIEM channels.');
+    prioritizedRemediations.push('Enforce least-privilege RBAC and multi-factor authentication across management interfaces.');
+  }
 
   return {
     riskScore,
@@ -414,11 +436,7 @@ export function runLocalTelemetryAssessment(telemetry?: ThreatAnalysisContext): 
     criticalVulnerabilities,
     correlatedIncidents,
     mitreCoverage,
-    prioritizedRemediations: [
-      'Isolate endpoints exhibiting C2 script injection (web-prod-01).',
-      'Deploy hotfixes for Log4Shell (CVE-2021-44228) and Apache (CVE-2021-41773).',
-      'Enforce perimeter ingress filtering on port 445 (SMB) and 3389 (RDP).',
-    ],
+    prioritizedRemediations,
     aiGenerated: true,
     engineUsed: 'LOCAL_TELEMETRY_ENGINE',
   };

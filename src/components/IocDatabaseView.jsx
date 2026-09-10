@@ -1,19 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Database, Search, ExternalLink, ShieldAlert, Globe, Hash, Server } from 'lucide-react';
 import { SAMPLE_IOC_LIST } from '../data/sampleData';
 import { useLanguage } from '../contexts/LanguageContext';
+import { authFetch } from '../services/apiClient';
 
 export default function IocDatabaseView() {
   const { t, language } = useLanguage();
   const [query, setQuery] = useState('');
   const [iocs, setIocs] = useState(SAMPLE_IOC_LIST);
+  const [sourceStats, setSourceStats] = useState(null);
 
-  const filtered = iocs.filter(i => 
-    (i.ip && i.ip.includes(query)) ||
-    (i.hash && i.hash.toLowerCase().includes(query.toLowerCase())) ||
-    (i.domain && i.domain.toLowerCase().includes(query.toLowerCase())) ||
-    (i.threat && i.threat.toLowerCase().includes(query.toLowerCase()))
-  );
+  useEffect(() => {
+    authFetch('/api/threat-intel/iocs')
+      .then(r => r.json())
+      .then(data => {
+        if (data?.iocs && data.iocs.length > 0) {
+          setIocs(data.iocs);
+        }
+        if (data?.stats) {
+          setSourceStats(data.stats);
+        }
+      })
+      .catch(err => console.warn('[IocDatabaseView] Using fallback IOC list:', err));
+  }, []);
+
+  const filtered = iocs.filter(i => {
+    const val = (i.indicator || i.ip || i.domain || i.hash || '').toLowerCase();
+    const threatVal = (i.threat || i.malwareFamily || '').toLowerCase();
+    const q = query.toLowerCase();
+    return val.includes(q) || threatVal.includes(q);
+  });
 
   return (
     <div className="space-y-6">
@@ -64,20 +80,20 @@ export default function IocDatabaseView() {
           <tbody className="divide-y divide-slate-900">
             {filtered.map((item, idx) => (
               <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
-                <td className="py-3 px-3 font-bold text-red-400 max-w-xs truncate">
-                  {item.ip || item.domain || item.hash}
+                <td className="py-3 px-3 font-bold text-red-400 max-w-xs truncate font-mono">
+                  {item.indicator || item.ip || item.domain || item.hash}
                 </td>
                 <td className="py-3 px-3 text-slate-400">{item.type}</td>
-                <td className="py-3 px-3 font-bold text-slate-200">{item.threat}</td>
+                <td className="py-3 px-3 font-bold text-slate-200">{item.threat || item.malwareFamily}</td>
                 <td className="py-3 px-3">
                   <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30 font-bold text-[10px]">
-                    {item.confidence}% {language === 'zh-TW' ? '信賴度' : 'Confidence'}
+                    {typeof item.confidence === 'number' ? `${item.confidence}%` : item.confidence || 'High'} {language === 'zh-TW' ? '信賴度' : 'Confidence'}
                   </span>
                 </td>
-                <td className="py-3 px-3 text-slate-300">{item.country}</td>
+                <td className="py-3 px-3 text-slate-300">{item.country || 'Global'}</td>
                 <td className="py-3 px-3">
                   <a
-                    href={`https://www.virustotal.com/gui/search/${encodeURIComponent(item.ip || item.domain || item.hash)}`}
+                    href={`https://www.virustotal.com/gui/search/${encodeURIComponent(item.indicator || item.ip || item.domain || item.hash)}`}
                     target="_blank"
                     rel="noreferrer"
                     className="text-cyan-400 hover:underline flex items-center gap-1 text-[11px]"

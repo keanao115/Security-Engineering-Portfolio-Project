@@ -9,11 +9,12 @@ import {
 import { getSiemEvents } from '../services/siemCollectorService.js';
 import { memoryDb } from '../db/client.js';
 import { requireRole } from '../middleware/auth.js';
+import { aiRateLimiter } from '../middleware/rateLimiter.js';
 
 export const aiRouter = Router();
 
 // POST /api/ai/chat — Real AI analysis (user-configured model or local model)
-aiRouter.post('/chat', requireRole(['Admin', 'Analyst']), async (req: Request, res: Response) => {
+aiRouter.post('/chat', aiRateLimiter, requireRole(['Admin', 'Analyst']), async (req: Request, res: Response) => {
   const { history, message, includeContext, apiKey, aiConfig } = req.body;
   const config: UserAiConfig = aiConfig || (apiKey ? { apiKey } : {});
 
@@ -46,7 +47,7 @@ aiRouter.post('/chat', requireRole(['Admin', 'Analyst']), async (req: Request, r
 });
 
 // POST /api/ai/analyze — Real SOC telemetry threat assessment
-aiRouter.post('/analyze', requireRole(['Admin', 'Analyst']), async (req: Request, res: Response) => {
+aiRouter.post('/analyze', aiRateLimiter, requireRole(['Admin', 'Analyst']), async (req: Request, res: Response) => {
   const { logs, findings, scan, apiKey, aiConfig } = req.body;
   const config: UserAiConfig = aiConfig || (apiKey ? { apiKey } : {});
 

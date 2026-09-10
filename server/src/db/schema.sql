@@ -213,6 +213,20 @@ CREATE TABLE IF NOT EXISTS suricata_events (
     raw_payload JSONB DEFAULT '{}'::jsonb
 );
 
+CREATE TABLE IF NOT EXISTS incident_cases (
+    id VARCHAR(100) PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    severity VARCHAR(50) NOT NULL,
+    status VARCHAR(50) DEFAULT 'New',
+    assigned_to VARCHAR(100) DEFAULT 'SOC Incident Lead Analyst',
+    source_ip VARCHAR(45),
+    target_ip VARCHAR(45),
+    mitre_technique VARCHAR(100),
+    summary TEXT,
+    notes JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
-
-
+CREATE INDEX IF NOT EXISTS idx_incidents_status ON incident_cases(status);
+CREATE INDEX IF NOT EXISTS idx_incidents_severity ON incident_cases(severity);

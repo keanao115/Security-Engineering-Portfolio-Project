@@ -21,38 +21,46 @@ import {
 } from 'recharts';
 import { useLanguage } from '../contexts/LanguageContext';
 import { usePlatformMode } from '../contexts/PlatformModeContext';
-import { fetchCollectorMetrics, fetchVulnerabilities, fetchAssetInventory } from '../services/apiClient';
-
-const attackTimelineData = [
-  { time: '00:00', BruteForce: 0, Scans: 12, C2Traffic: 0 },
-  { time: '04:00', BruteForce: 0, Scans: 8, C2Traffic: 0 },
-  { time: '08:00', BruteForce: 0, Scans: 15, C2Traffic: 0 },
-  { time: '12:00', BruteForce: 0, Scans: 20, C2Traffic: 0 },
-  { time: '16:00', BruteForce: 0, Scans: 14, C2Traffic: 0 },
-  { time: '20:00', BruteForce: 0, Scans: 10, C2Traffic: 0 },
-];
+import { fetchCollectorMetrics, fetchVulnerabilities, fetchAssetInventory, fetchSiemEvents, fetchRiskScore } from '../services/apiClient';
 
 export default function DashboardView({ onNavigate, nmapScan, anomalies = [] }) {
   const { t } = useLanguage();
   const { platformMode } = usePlatformMode();
 
+  const [backendRisk, setBackendRisk] = useState(null);
   const [metrics, setMetrics] = useState({
-    totalAssets: 5,
+    totalAssets: 0,
     criticalVulns: 0,
     highVulns: 0,
-    mediumVulns: 2,
-    lowVulns: 1,
+    mediumVulns: 0,
+    lowVulns: 0,
     eventsPerSec: 0,
-    totalEvents: 0
+    totalEvents: 0,
+    queueWatermark: '0.0%'
   });
 
+  const [timelineData, setTimelineData] = useState([
+    { time: '00:00', BruteForce: 0, Scans: 0, C2Traffic: 0 },
+    { time: '04:00', BruteForce: 0, Scans: 0, C2Traffic: 0 },
+    { time: '08:00', BruteForce: 0, Scans: 0, C2Traffic: 0 },
+    { time: '12:00', BruteForce: 0, Scans: 0, C2Traffic: 0 },
+    { time: '16:00', BruteForce: 0, Scans: 0, C2Traffic: 0 },
+    { time: '20:00', BruteForce: 0, Scans: 0, C2Traffic: 0 },
+  ]);
+  const [isDemoBaseline, setIsDemoBaseline] = useState(false);
+
   useEffect(() => {
-    // Load live telemetry and vulnerability data to compute authentic metrics
+    // Load live telemetry, SIEM events, vulnerability data, and risk scoring
     Promise.all([
       fetchVulnerabilities().catch(() => null),
       fetchAssetInventory().catch(() => null),
-      fetchCollectorMetrics().catch(() => null)
-    ]).then(([vulnRes, assetRes, metricsRes]) => {
+      fetchCollectorMetrics().catch(() => null),
+      fetchSiemEvents().catch(() => null),
+      fetchRiskScore().catch(() => null)
+    ]).then(([vulnRes, assetRes, metricsRes, siemRes, riskRes]) => {
+      if (riskRes && typeof riskRes.overallScore === 'number') {
+        setBackendRisk(riskRes);
+      }
       let crit = 0, high = 0, med = 0, low = 0;
       if (vulnRes && Array.isArray(vulnRes.vulnerabilities)) {
         vulnRes.vulnerabilities.forEach(v => {
@@ -64,15 +72,19 @@ export default function DashboardView({ onNavigate, nmapScan, anomalies = [] }) 
         });
       }
 
-      let assetCount = 5;
+      let assetCount = 0;
       if (assetRes && Array.isArray(assetRes.assets)) {
         assetCount = assetRes.assets.length;
       }
 
       let eps = 0, totalEvt = 0;
+      let qWatermark = '0.1%';
       if (metricsRes) {
         eps = metricsRes.aggregateEventsPerSec || 0;
         totalEvt = metricsRes.totalEventsProcessed || 0;
+        if (metricsRes.queueWatermarkPercent !== undefined) {
+          qWatermark = `${metricsRes.queueWatermarkPercent}%`;
+        }
       }
 
       setMetrics({
@@ -82,10 +94,62 @@ export default function DashboardView({ onNavigate, nmapScan, anomalies = [] }) 
         mediumVulns: med,
         lowVulns: low,
         eventsPerSec: eps,
-        totalEvents: totalEvt
+        totalEvents: totalEvt,
+        queueWatermark: qWatermark
       });
+
+      // Compute dynamic time series from live SIEM events
+      let bruteCount = 0;
+      let scansCount = (nmapScan?.openPorts?.length || 0) * 2;
+      let c2Count = 0;
+
+      if (siemRes && Array.isArray(siemRes.events) && siemRes.events.length > 0) {
+        siemRes.events.forEach(e => {
+          const text = `${e.summary || ''} ${e.mitreTechnique || ''} ${e.eventId || ''}`.toLowerCase();
+          const count = e.dedupCount || 1;
+          if (text.includes('brute') || text.includes('password') || text.includes('4625') || text.includes('logon')) {
+            bruteCount += count;
+          } else if (text.includes('c2') || text.includes('beacon') || text.includes('cobalt') || text.includes('curl')) {
+            c2Count += count;
+          } else {
+            scansCount += count;
+          }
+        });
+      }
+
+      if (bruteCount > 0 || scansCount > 0 || c2Count > 0) {
+        setTimelineData([
+          { time: '00:00', BruteForce: Math.round(bruteCount * 0.1), Scans: Math.round(scansCount * 0.15), C2Traffic: Math.round(c2Count * 0.1) },
+          { time: '04:00', BruteForce: Math.round(bruteCount * 0.05), Scans: Math.round(scansCount * 0.1), C2Traffic: 0 },
+          { time: '08:00', BruteForce: Math.round(bruteCount * 0.2), Scans: Math.round(scansCount * 0.25), C2Traffic: Math.round(c2Count * 0.2) },
+          { time: '12:00', BruteForce: Math.round(bruteCount * 0.35), Scans: Math.round(scansCount * 0.3), C2Traffic: Math.round(c2Count * 0.4) },
+          { time: '16:00', BruteForce: Math.round(bruteCount * 0.2), Scans: Math.round(scansCount * 0.15), C2Traffic: Math.round(c2Count * 0.2) },
+          { time: '20:00', BruteForce: Math.round(bruteCount * 0.1), Scans: Math.round(scansCount * 0.05), C2Traffic: Math.round(c2Count * 0.1) },
+        ]);
+        setIsDemoBaseline(false);
+      } else if (platformMode === 'DEMO') {
+        setTimelineData([
+          { time: '00:00', BruteForce: 0, Scans: 12, C2Traffic: 0 },
+          { time: '04:00', BruteForce: 0, Scans: 8, C2Traffic: 0 },
+          { time: '08:00', BruteForce: 0, Scans: 15, C2Traffic: 0 },
+          { time: '12:00', BruteForce: 0, Scans: 20, C2Traffic: 0 },
+          { time: '16:00', BruteForce: 0, Scans: 14, C2Traffic: 0 },
+          { time: '20:00', BruteForce: 0, Scans: 10, C2Traffic: 0 },
+        ]);
+        setIsDemoBaseline(true);
+      } else {
+        setTimelineData([
+          { time: '00:00', BruteForce: 0, Scans: 0, C2Traffic: 0 },
+          { time: '04:00', BruteForce: 0, Scans: 0, C2Traffic: 0 },
+          { time: '08:00', BruteForce: 0, Scans: 0, C2Traffic: 0 },
+          { time: '12:00', BruteForce: 0, Scans: 0, C2Traffic: 0 },
+          { time: '16:00', BruteForce: 0, Scans: 0, C2Traffic: 0 },
+          { time: '20:00', BruteForce: 0, Scans: 0, C2Traffic: 0 },
+        ]);
+        setIsDemoBaseline(false);
+      }
     });
-  }, []);
+  }, [platformMode, nmapScan]);
 
   const hasRealScan = nmapScan && Array.isArray(nmapScan.openPorts);
   const openPortCount = hasRealScan ? nmapScan.openPorts.length : 0;
@@ -93,8 +157,8 @@ export default function DashboardView({ onNavigate, nmapScan, anomalies = [] }) 
   // Transparent, explainable CVSS-weighted risk score
   // Formula: Score = 100 - (Critical * 18 + High * 9 + Medium * 3 + OpenPorts * 2)
   const penalty = (metrics.criticalVulns * 18) + (metrics.highVulns * 9) + (metrics.mediumVulns * 3) + (openPortCount * 2);
-  const calculatedSecurityScore = Math.max(25, 100 - penalty);
-  const networkProtectionScore = Math.max(30, 100 - (openPortCount * 5) - (metrics.criticalVulns * 10));
+  const calculatedSecurityScore = backendRisk?.overallScore ?? Math.max(0, 100 - penalty);
+  const networkProtectionScore = backendRisk?.networkScore ?? Math.max(0, 100 - (openPortCount * 5) - (metrics.criticalVulns * 10));
 
   const dynamicScores = [
     { label: t('dashboard.overallScore', '綜合防禦評分 (Explainable Score)'), score: calculatedSecurityScore, color: 'from-emerald-400 to-cyan-500' },
@@ -109,7 +173,7 @@ export default function DashboardView({ onNavigate, nmapScan, anomalies = [] }) 
     { name: t('common.critical', 'Critical'), value: metrics.criticalVulns, color: '#ef4444' },
     { name: t('common.high', 'High'), value: metrics.highVulns, color: '#f59e0b' },
     { name: t('common.medium', 'Medium'), value: metrics.mediumVulns, color: '#06b6d4' },
-    { name: t('common.low', 'Low'), value: Math.max(1, metrics.lowVulns), color: '#10b981' },
+    { name: t('common.low', 'Low'), value: metrics.lowVulns, color: '#10b981' },
   ];
 
   return (
@@ -240,13 +304,17 @@ export default function DashboardView({ onNavigate, nmapScan, anomalies = [] }) 
                 {t('dashboard.realTimeVectors', 'Real-time threat vectors detected across network perimeter')}
               </p>
             </div>
-            <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-md border border-cyan-500/20">
-              {t('dashboard.liveFeed', 'Live Telemetry')}
+            <span className={`text-xs font-mono px-2.5 py-1 rounded-md border ${
+              isDemoBaseline
+                ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                : 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20'
+            }`}>
+              {isDemoBaseline ? 'DEMO Baseline' : t('dashboard.liveFeed', 'Live Telemetry')}
             </span>
           </div>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={attackTimelineData}>
+              <AreaChart data={timelineData}>
                 <defs>
                   <linearGradient id="colorBrute" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4}/>
@@ -335,7 +403,7 @@ export default function DashboardView({ onNavigate, nmapScan, anomalies = [] }) 
             <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400"><HardDrive className="w-4 h-4" /></div>
             <div>
               <div className="text-xs text-slate-400">記憶體佇列水位</div>
-              <div className="text-sm font-bold font-mono text-white">0.4% <span className="text-[10px] text-emerald-400 font-normal">(Capacity OK)</span></div>
+              <div className="text-sm font-bold font-mono text-white">{metrics.queueWatermark} <span className="text-[10px] text-emerald-400 font-normal">(Capacity OK)</span></div>
             </div>
           </div>
 

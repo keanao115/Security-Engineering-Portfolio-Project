@@ -6,10 +6,12 @@ import {
   getTopTalkers
 } from '../services/networkFlowService.js';
 import { broadcastTelemetryEvent } from '../services/websocketService.js';
+import { requireRole } from '../middleware/auth.js';
+import { isPrivateIp } from '../services/geoIpService.js';
 
 export const networkFlowRouter = Router();
 
-networkFlowRouter.get('/', (req: Request, res: Response) => {
+networkFlowRouter.get('/', requireRole(['Admin', 'Analyst', 'Viewer']), (req: Request, res: Response) => {
   const { protocol, anomaly, direction } = req.query;
   const flows = getLiveNetworkFlows({
     protocol: protocol as string,
@@ -20,25 +22,25 @@ networkFlowRouter.get('/', (req: Request, res: Response) => {
   return res.json({ metrics, flows });
 });
 
-networkFlowRouter.get('/metrics', (req: Request, res: Response) => {
+networkFlowRouter.get('/metrics', requireRole(['Admin', 'Analyst', 'Viewer']), (req: Request, res: Response) => {
   const metrics = calculateNetworkBandwidthMetrics();
   return res.json(metrics);
 });
 
-networkFlowRouter.get('/top-talkers', (req: Request, res: Response) => {
+networkFlowRouter.get('/top-talkers', requireRole(['Admin', 'Analyst', 'Viewer']), (req: Request, res: Response) => {
   const talkers = getTopTalkers();
   return res.json({ topTalkers: talkers });
 });
 
-networkFlowRouter.post('/ingest', (req: Request, res: Response) => {
+networkFlowRouter.post('/ingest', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
   const { sourceType, srcIp, srcPort, destIp, destPort, protocol, bytes, packets, flags, direction, vlanId, geoCountry } = req.body;
 
   if (!srcIp || !destIp) {
     return res.status(400).json({ error: 'srcIp and destIp are required for NetFlow record' });
   }
 
-  const isInternalSrc = srcIp.startsWith('192.168.') || srcIp.startsWith('10.');
-  const isInternalDst = destIp.startsWith('192.168.') || destIp.startsWith('10.');
+  const isInternalSrc = isPrivateIp(srcIp);
+  const isInternalDst = isPrivateIp(destIp);
   const inferredDirection = direction || (isInternalSrc && isInternalDst ? 'LATERAL' : isInternalSrc ? 'OUTBOUND' : 'INBOUND');
 
   const record = ingestNetFlowRecord({

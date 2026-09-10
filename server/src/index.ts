@@ -1,4 +1,10 @@
 import 'dotenv/config';
+import { enforceEnvironmentConfig } from './config/envValidation.js';
+import { logger } from './utils/logger.js';
+
+// Strict Fail-Safe: Validate all critical environment configurations at Boot time
+enforceEnvironmentConfig();
+
 import express from 'express';
 import http from 'http';
 import helmet from 'helmet';
@@ -18,7 +24,6 @@ import { discoveryRouter } from './routes/discoveryRoutes.js';
 import { siemRouter } from './routes/siemRoutes.js';
 import { aiRouter } from './routes/aiRoutes.js';
 import { initWebSocketServer } from './services/websocketService.js';
-import { startSyslogReceiver, getSyslogStats } from './services/syslogReceiverService.js';
 import { loadThreatIntelFeeds, getThreatIntelStats, getActiveIocList } from './services/threatIntelService.js';
 import { getSystemHealth } from './services/systemHealthService.js';
 
@@ -39,7 +44,7 @@ import { seedDemoData } from './demo/seedDataService.js';
 import { captureRouter } from './routes/captureRoutes.js';
 import { zeekRouter } from './routes/zeekRoutes.js';
 import { suricataRouter } from './routes/suricataRoutes.js';
-import { pipelineRouter } from './routes/pipelineRoutes.js';
+import { pipelineRouter, createPipelineRouter } from './routes/pipelineRoutes.js';
 import { investigationRouter } from './routes/investigationRoutes.js';
 
 const app = express();
@@ -69,7 +74,7 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error(`CORS policy blocked access from origin: ${origin}`));
+      callback(null, false);
     }
   },
   credentials: true,
@@ -91,8 +96,8 @@ const syslogCollector = new SyslogCollectorService(
     name: 'Syslog-Server',
     type: 'syslog',
     enabled: true,
-    udpPort: 514,
-    tcpPort: 514,
+    udpPort: parseInt(process.env.SYSLOG_UDP_PORT || '5514', 10),
+    tcpPort: parseInt(process.env.SYSLOG_TCP_PORT || '5515', 10),
     maxPacketSizeBytes: 65536,
     rateLimitEventsPerSec: 500,
     rateLimitBurst: 2000,
@@ -108,7 +113,7 @@ const wefCollector = new WefCollectorService(
     name: 'Windows-Event-Collector',
     type: 'wef',
     enabled: true,
-    httpPort: 5516,
+    httpPort: parseInt(process.env.WEF_HTTP_PORT || '5516', 10),
     maxPacketSizeBytes: 2097152, // 2MB
     rateLimitEventsPerSec: 300,
     rateLimitBurst: 1000,
@@ -124,7 +129,7 @@ const netflowCollector = new NetflowCollectorService(
     name: 'NetFlow-IPFIX-Collector',
     type: 'netflow',
     enabled: true,
-    udpPort: 2055,
+    udpPort: parseInt(process.env.NETFLOW_UDP_PORT || '2055', 10),
     maxPacketSizeBytes: 65536,
     rateLimitEventsPerSec: 1000,
     rateLimitBurst: 5000,
@@ -171,7 +176,6 @@ app.get('/health/ready', (_req, res) => {
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/health', async (req, res) => {
   const systemHealth = await getSystemHealth();
-  const syslogStats = getSyslogStats();
   const threatIntelStats = getThreatIntelStats();
   const geminiEnabled = !!process.env.GEMINI_API_KEY;
 
@@ -183,13 +187,13 @@ app.get('/health', async (req, res) => {
     modules: [
       'Auth', 'Assets', 'Ingest', 'Vulnerabilities', 'Reports', 'Threats',
       'NetworkFlow', 'Packets', 'Discovery', 'SIEM', 'WebSocket',
-      'GeminiAI', 'SyslogReceiver', 'ThreatIntel', 'GeoIP', 'NVD_CVE',
+      'GeminiAI', 'ThreatIntel', 'GeoIP', 'NVD_CVE',
       'SyslogCollector', 'WefCollector', 'NetflowCollector', 'PrometheusMetrics'
     ],
     collectorHealth: collectors.map(c => c.getHealth()),
     realFeatures: {
       geminiAI: geminiEnabled ? 'ACTIVE' : 'FALLBACK (add GEMINI_API_KEY)',
-      syslogReceiver: syslogStats,
+      syslogCollector: syslogCollector.getHealth(),
       threatIntel: threatIntelStats,
       osDiscovery: 'ACTIVE (arp, netstat, os.networkInterfaces)',
       nvdCveApi: 'ACTIVE (services.nvd.nist.gov)',
@@ -206,7 +210,7 @@ app.use('/api/platform', platformRouter);
 app.use('/api/capture', authenticateJwt, captureRouter);
 app.use('/api/zeek', authenticateJwt, zeekRouter);
 app.use('/api/suricata', authenticateJwt, suricataRouter);
-app.use('/api/pipeline', authenticateJwt, pipelineRouter);
+app.use('/api/pipeline', authenticateJwt, createPipelineRouter(messageQueue, pipelineService));
 app.use('/api/investigation', authenticateJwt, investigationRouter);
 
 // ─── REST Routes — Core SOC ──────────────────────────────────────────────────
@@ -234,15 +238,19 @@ app.get('/api/threat-intel/iocs', authenticateJwt, (_req, res) => {
   res.json({ stats: getThreatIntelStats(), iocs: getActiveIocList().slice(0, 200) });
 });
 
-// Syslog receiver status
-app.get('/api/syslog/status', authenticateJwt, (_req, res) => {
-  res.json(getSyslogStats());
-});
-
 // ─── Error Handling ──────────────────────────────────────────────────────────
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('[SOC Backend Error]:', err.stack || err);
-  res.status(500).json({ error: 'Internal SOC Backend Error', message: err.message });
+  logger.error(`[SOC Request Error] ${req.method} ${req.originalUrl || req.url}`, err, {
+    ip: req.ip,
+    method: req.method,
+    path: req.originalUrl || req.url,
+  });
+  const isDev = process.env.NODE_ENV !== 'production';
+  res.status(500).json({
+    error: 'Internal SOC Backend Error',
+    code: 'INTERNAL_SERVER_ERROR',
+    ...(isDev ? { message: err.message } : { message: 'An unexpected internal error occurred.' })
+  });
 });
 
 // ─── HTTP Server + WebSocket ──────────────────────────────────────────────────

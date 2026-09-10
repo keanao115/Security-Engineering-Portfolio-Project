@@ -1,10 +1,10 @@
 import { Request, Response, Router } from 'express';
-import { memoryDb } from '../db/client.js';
+import { memoryDb, pushBounded } from '../db/client.js';
 import { requireRole } from '../middleware/auth.js';
 
 export const assetRouter = Router();
 
-assetRouter.get('/', (req: Request, res: Response) => {
+assetRouter.get('/', requireRole(['Admin', 'Analyst', 'Viewer']), (req: Request, res: Response) => {
   return res.json({
     count: memoryDb.assets.length,
     assets: memoryDb.assets
@@ -31,6 +31,6 @@ assetRouter.post('/', requireRole(['Admin', 'Analyst']), (req: Request, res: Res
     tags: tags || ['Discovered']
   };
 
-  memoryDb.assets.push(newAsset);
+  pushBounded(memoryDb.assets, newAsset, 1000);
   return res.status(201).json({ message: 'Asset registered successfully', asset: newAsset });
 });

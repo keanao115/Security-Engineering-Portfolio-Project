@@ -1,4 +1,4 @@
-import { memoryDb, query } from '../db/client.js';
+import { memoryDb, query, pushBounded } from '../db/client.js';
 
 export type SiemSourceCategory =
   | 'Windows_WEF'
@@ -197,7 +197,7 @@ export function ingestSiemEvent(event: Omit<SiemEventRecord, 'id' | 'timestamp' 
   };
 
   siemEventStream.unshift(newEvent);
-  memoryDb.logs.unshift(newEvent);
+  pushBounded(memoryDb.logs, newEvent, 1000);
 
   if (siemEventStream.length > 1000) siemEventStream.pop();
 

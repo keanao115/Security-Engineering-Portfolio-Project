@@ -1,15 +1,16 @@
 import { Request, Response, Router } from 'express';
 import { SuricataCollectorService } from '../collectors/suricata/suricataCollector.js';
+import { requireRole } from '../middleware/auth.js';
 
 export const suricataRouter = Router();
 
 // GET /api/suricata/status — Suricata IDS sensor health
-suricataRouter.get('/status', (_req: Request, res: Response) => {
+suricataRouter.get('/status', requireRole(['Admin', 'Analyst', 'Viewer']), (_req: Request, res: Response) => {
   return res.json(SuricataCollectorService.getInstance().getSensorStatus());
 });
 
 // POST /api/suricata/eve — Ingest Suricata EVE JSON event
-suricataRouter.post('/eve', (req: Request, res: Response) => {
+suricataRouter.post('/eve', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
   const eveEntry = req.body;
   if (!eveEntry || typeof eveEntry !== 'object') {
     return res.status(400).json({ error: 'Valid EVE JSON entry object is required' });

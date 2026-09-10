@@ -25,8 +25,8 @@ export function parseWindowsLogTelemetry(rawText: string): WindowsEventTelemetry
       const computerMatch = block.match(/<Computer>([^<]+)<\/Computer>/);
       const timeMatch = block.match(/SystemTime="([^"]+)"/);
 
-      const eventId = eventIdMatch ? eventIdMatch[1] : '4625';
-      const computer = computerMatch ? computerMatch[1] : 'DC-SRV-01.corp.internal';
+      const eventId = eventIdMatch ? eventIdMatch[1] : 'Unknown';
+      const computer = computerMatch ? computerMatch[1] : 'Unknown-Host';
       const timestamp = timeMatch ? timeMatch[1] : new Date().toISOString();
 
       let user = 'N/A';
@@ -68,19 +68,24 @@ export function parseWindowsLogTelemetry(rawText: string): WindowsEventTelemetry
     // TXT parser
     const lines = rawText.split('\n').filter(l => l.trim().length > 0);
     lines.forEach((line, idx) => {
-      let eventId = '4625';
-      if (line.includes('4688') || line.includes('powershell')) eventId = '4688';
-      if (line.includes('4720')) eventId = '4720';
-      if (line.includes('1102')) eventId = '1102';
+      let eventId = 'Unknown';
+      if (line.includes('4625')) eventId = '4625';
+      else if (line.includes('4688') || line.includes('powershell')) eventId = '4688';
+      else if (line.includes('4720')) eventId = '4720';
+      else if (line.includes('1102')) eventId = '1102';
+
+      const hostMatch = line.match(/(?:host|computer):\s*([a-zA-Z0-9_.-]+)/i);
+      const userMatch = line.match(/(?:user|username):\s*([a-zA-Z0-9_.-]+)/i);
+      const ipMatch = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
 
       events.push({
         id: `WIN-TXT-${idx + 1}`,
         sourceType: 'Windows Event Log (TXT)',
         eventId,
-        computer: 'DC-SRV-01.corp.internal',
+        computer: hostMatch ? hostMatch[1] : 'Unknown-Host',
         timestamp: new Date().toISOString(),
-        user: line.includes('User:') ? line.split('User:')[1].split(' ')[0] : 'Administrator',
-        ip: line.includes('IP:') ? line.split('IP:')[1].split(' ')[0] : '192.168.1.155',
+        user: userMatch ? userMatch[1] : 'N/A',
+        ip: ipMatch ? ipMatch[0] : 'N/A',
         process: line.includes('powershell') ? 'powershell.exe' : 'N/A',
         commandLine: line,
         details: line,

@@ -48,8 +48,8 @@ export class ZeekCollectorService {
       ? new Date(entry.ts * 1000).toISOString()
       : entry.ts || new Date().toISOString();
 
-    const srcIp = entry['id.orig_h'] || '192.168.1.100';
-    const destIp = entry['id.resp_h'] || '10.0.0.1';
+    const srcIp = entry['id.orig_h'] || 'Unknown';
+    const destIp = entry['id.resp_h'] || 'Unknown';
     const srcPort = entry['id.orig_p'] || 0;
     const destPort = entry['id.resp_p'] || 0;
 
