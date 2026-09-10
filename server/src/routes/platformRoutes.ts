@@ -9,7 +9,15 @@ import { authenticateJwt, requireRole } from '../middleware/auth.js';
 export const platformRouter = Router();
 const serverStartTime = Date.now();
 
-// GET /api/platform/status — Returns current operating mode & data policy
+// ─── Design Decision & Audit Note ─────────────────────────────────────────────
+// NOTE: GET /api/platform/status is intentionally unauthenticated.
+// It serves as a public health-check & liveness probe for container orchestrators
+// (Docker / Kubernetes / external monitoring) and enables the frontend client to
+// bootstrap initial operating mode display prior to user authentication.
+// SECURITY AUDIT: The payload strictly contains non-sensitive operational
+// flags (platformMode, syntheticDataEnabled, uptime). No credentials, secrets,
+// or user records are exposed.
+// ─────────────────────────────────────────────────────────────────────────────
 platformRouter.get('/status', (_req: Request, res: Response) => {
   const config = loadPlatformConfig();
   const uptimeSeconds = Math.floor((Date.now() - serverStartTime) / 1000);

@@ -8,11 +8,12 @@ import {
 } from '../services/geminiAiService.js';
 import { getSiemEvents } from '../services/siemCollectorService.js';
 import { memoryDb } from '../db/client.js';
+import { requireRole } from '../middleware/auth.js';
 
 export const aiRouter = Router();
 
 // POST /api/ai/chat — Real AI analysis (user-configured model or local model)
-aiRouter.post('/chat', async (req: Request, res: Response) => {
+aiRouter.post('/chat', requireRole(['Admin', 'Analyst']), async (req: Request, res: Response) => {
   const { history, message, includeContext, apiKey, aiConfig } = req.body;
   const config: UserAiConfig = aiConfig || (apiKey ? { apiKey } : {});
 
@@ -45,7 +46,7 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
 });
 
 // POST /api/ai/analyze — Real SOC telemetry threat assessment
-aiRouter.post('/analyze', async (req: Request, res: Response) => {
+aiRouter.post('/analyze', requireRole(['Admin', 'Analyst']), async (req: Request, res: Response) => {
   const { logs, findings, scan, apiKey, aiConfig } = req.body;
   const config: UserAiConfig = aiConfig || (apiKey ? { apiKey } : {});
 
@@ -65,8 +66,8 @@ aiRouter.post('/analyze', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/ai/test-connection — Test user-configured API model
-aiRouter.post('/test-connection', async (req: Request, res: Response) => {
+// POST /api/ai/test-connection — Test user-configured API model (Admin Only)
+aiRouter.post('/test-connection', requireRole(['Admin']), async (req: Request, res: Response) => {
   const { aiConfig } = req.body;
   if (!aiConfig || typeof aiConfig !== 'object') {
     return res.status(400).json({ error: 'aiConfig object is required' });

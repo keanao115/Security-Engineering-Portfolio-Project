@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express';
 import { getSiemEvents, ingestSiemEvent, getSiemStats } from '../services/siemCollectorService.js';
 import { evaluateMultiVectorCorrelation } from '../services/aiCorrelationEngine.js';
 import { broadcastTelemetryEvent } from '../services/websocketService.js';
+import { requireRole } from '../middleware/auth.js';
 
 export const siemRouter = Router();
 
@@ -20,7 +21,7 @@ siemRouter.get('/stats', (req: Request, res: Response) => {
   return res.json(stats);
 });
 
-siemRouter.post('/events', (req: Request, res: Response) => {
+siemRouter.post('/events', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
   const { sourceCategory, hostName, severity, eventId, mitreTechnique, summary, rawDetails } = req.body;
 
   if (!hostName || !summary) {
@@ -42,7 +43,7 @@ siemRouter.post('/events', (req: Request, res: Response) => {
   return res.status(201).json({ message: 'SIEM event ingested and correlated', event: newEvent });
 });
 
-siemRouter.post('/ingest/bulk', (req: Request, res: Response) => {
+siemRouter.post('/ingest/bulk', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
   const { events } = req.body;
   if (!Array.isArray(events)) {
     return res.status(400).json({ error: 'events must be an array' });

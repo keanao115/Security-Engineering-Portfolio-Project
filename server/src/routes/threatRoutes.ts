@@ -1,11 +1,12 @@
 import { Request, Response, Router } from 'express';
 import { generateDefensiveAiAnalysis } from '../services/aiAnalysisService.js';
 import { memoryDb } from '../db/client.js';
+import { requireRole } from '../middleware/auth.js';
 import net from 'net';
 
 export const threatRouter = Router();
 
-threatRouter.post('/analyze', (req: Request, res: Response) => {
+threatRouter.post('/analyze', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
   const { logs, findings, scan } = req.body;
 
   const result = generateDefensiveAiAnalysis({
@@ -17,8 +18,24 @@ threatRouter.post('/analyze', (req: Request, res: Response) => {
   return res.json(result);
 });
 
-threatRouter.get('/scan', async (req: Request, res: Response) => {
-  const targetHost = (req.query.target as string) || '127.0.0.1';
+threatRouter.get('/scan', requireRole(['Admin', 'Analyst']), async (req: Request, res: Response) => {
+  const targetHost = ((req.query.target as string) || '127.0.0.1').trim().toLowerCase();
+
+  // ─── SSRF & Input Validation Guard ───────────────────────────────────────────
+  // Block link-local addresses, cloud metadata endpoints, and invalid formats
+  const isInvalidFormat = !/^[a-z0-9.-]+$/.test(targetHost) || targetHost.length > 253;
+  const isRestrictedTarget =
+    targetHost === '0.0.0.0' ||
+    targetHost.startsWith('169.254.') ||
+    targetHost.startsWith('224.') ||
+    targetHost.includes('metadata.google.internal') ||
+    targetHost.includes('instance-data');
+
+  if (isInvalidFormat || isRestrictedTarget) {
+    return res.status(400).json({
+      error: 'Invalid or restricted target host (SSRF Protection). Cloud metadata and link-local ranges are blocked.'
+    });
+  }
 
   const portsToScan = [
     { port: 21, name: 'FTP', service: 'File Transfer Protocol' },

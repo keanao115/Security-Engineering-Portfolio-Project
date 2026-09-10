@@ -1,5 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { memoryDb } from '../db/client.js';
+import { requireRole } from '../middleware/auth.js';
 
 export const assetRouter = Router();
 
@@ -10,7 +11,7 @@ assetRouter.get('/', (req: Request, res: Response) => {
   });
 });
 
-assetRouter.post('/', (req: Request, res: Response) => {
+assetRouter.post('/', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
   const { hostname, ip_address, mac_address, os_name, owner, tags } = req.body;
 
   if (!hostname || !ip_address) {

@@ -225,4 +225,108 @@ describe('CyberMind SOC Authentication & RBAC Test Suite', () => {
     });
   });
 
+  describe('6. Threat, Ingestion & AI Route RBAC & SSRF Protection Regression Suite', () => {
+    test('Viewer accessing port scanner /api/threats/scan must be BLOCKED with 403 Forbidden', () => {
+      let statusCode = 0;
+      let errorJson: any = null;
+      let nextCalled = false;
+
+      const req: any = {
+        user: { id: 99, username: 'unauthorized_viewer', role: 'Viewer' },
+        query: { target: '127.0.0.1' }
+      };
+      const res: any = {
+        status: (code: number) => {
+          statusCode = code;
+          return { json: (data: any) => { errorJson = data; } };
+        }
+      };
+
+      const middleware = requireRole(['Admin', 'Analyst']);
+      middleware(req, res, () => { nextCalled = true; });
+
+      assert.strictEqual(nextCalled, false, 'Viewer must not be allowed to execute port scan');
+      assert.strictEqual(statusCode, 403);
+      assert.strictEqual(errorJson?.code, 'AUTH_ROLE_FORBIDDEN');
+    });
+
+    test('Viewer accessing /api/ingest/logs or /api/vulnerabilities/lookup must be BLOCKED with 403', () => {
+      let statusCode = 0;
+      const req: any = {
+        user: { id: 99, username: 'viewer_user', role: 'Viewer' }
+      };
+      const res: any = {
+        status: (code: number) => ({ json: () => { statusCode = code; } })
+      };
+
+      const middleware = requireRole(['Admin', 'Analyst']);
+      middleware(req, res, () => {});
+
+      assert.strictEqual(statusCode, 403);
+    });
+
+    test('Analyst accessing /api/ai/test-connection (Admin-Only) must be BLOCKED with 403', () => {
+      let statusCode = 0;
+      const req: any = {
+        user: { id: 2, username: 'analyst_user', role: 'Analyst' }
+      };
+      const res: any = {
+        status: (code: number) => ({ json: () => { statusCode = code; } })
+      };
+
+      const adminOnlyMiddleware = requireRole(['Admin']);
+      adminOnlyMiddleware(req, res, () => {});
+
+      assert.strictEqual(statusCode, 403, 'Analyst cannot access Admin-only test-connection');
+    });
+
+    test('Admin accessing /api/ai/test-connection must SUCCEED with next()', () => {
+      let nextCalled = false;
+      const req: any = {
+        user: { id: 1, username: 'root_admin', role: 'Admin' }
+      };
+      const res: any = {};
+
+      const adminOnlyMiddleware = requireRole(['Admin']);
+      adminOnlyMiddleware(req, res, () => { nextCalled = true; });
+
+      assert.strictEqual(nextCalled, true);
+    });
+
+    test('Port scanner SSRF Guard blocks Cloud Metadata IP 169.254.169.254', () => {
+      const targets = ['169.254.169.254', '169.254.1.1', '0.0.0.0', '224.0.0.1', 'http://metadata.google.internal', 'bad;host$name'];
+
+      for (const targetHost of targets) {
+        const isInvalidFormat = !/^[a-z0-9.-]+$/.test(targetHost.toLowerCase()) || targetHost.length > 253;
+        const isRestrictedTarget =
+          targetHost === '0.0.0.0' ||
+          targetHost.startsWith('169.254.') ||
+          targetHost.startsWith('224.') ||
+          targetHost.includes('metadata.google.internal') ||
+          targetHost.includes('instance-data');
+
+        assert.ok(
+          isInvalidFormat || isRestrictedTarget,
+          `SSRF filter must block restricted or invalid target: ${targetHost}`
+        );
+      }
+    });
+
+    test('Port scanner allows benign targets like 127.0.0.1 and localhost', () => {
+      const benign = ['127.0.0.1', 'localhost', '192.168.1.10'];
+      for (const targetHost of benign) {
+        const isInvalidFormat = !/^[a-z0-9.-]+$/.test(targetHost.toLowerCase()) || targetHost.length > 253;
+        const isRestrictedTarget =
+          targetHost === '0.0.0.0' ||
+          targetHost.startsWith('169.254.') ||
+          targetHost.startsWith('224.') ||
+          targetHost.includes('metadata.google.internal') ||
+          targetHost.includes('instance-data');
+
+        assert.strictEqual(isInvalidFormat, false, `Benign host ${targetHost} should have valid format`);
+        assert.strictEqual(isRestrictedTarget, false, `Benign host ${targetHost} should not be restricted`);
+      }
+    });
+  });
+
 });

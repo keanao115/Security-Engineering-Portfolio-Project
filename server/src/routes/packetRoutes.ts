@@ -3,6 +3,7 @@ import multer from 'multer';
 import { parsePcapMetadata, getPcapHistory } from '../services/packetAnalysisService.js';
 import { parsePcapBuffer } from '../services/pcapBinaryParser.js';
 import { createPcapUploadProvenance } from '../provenance/provenanceFactory.js';
+import { requireRole } from '../middleware/auth.js';
 
 export const packetRouter = Router();
 
@@ -22,7 +23,7 @@ const upload = multer({
 });
 
 // POST /api/packets/upload — Real binary PCAP file upload and parse
-packetRouter.post('/upload', upload.single('pcapFile'), (req: Request, res: Response) => {
+packetRouter.post('/upload', requireRole(['Admin', 'Analyst']), upload.single('pcapFile'), (req: Request, res: Response) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No PCAP file uploaded. Use multipart/form-data with field name "pcapFile".' });
   }

@@ -164,7 +164,6 @@ app.use('/api/ingest', authenticateJwt, ingestRateLimiter, ingestRouter);
 app.use('/api/vulnerabilities', authenticateJwt, vulnerabilityRouter);
 app.use('/api/reports', authenticateJwt, reportRouter);
 app.use('/api/threats', authenticateJwt, threatRouter);
-app.use('/api/scan', threatRouter); // Compatibility mapping
 
 // ─── REST Routes — Collector Management & Live Telemetry ─────────────────────
 app.use('/api/collectors', authenticateJwt, createCollectorRouter(collectors));

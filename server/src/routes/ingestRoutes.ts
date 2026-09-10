@@ -10,11 +10,12 @@ import { scanWithSigmaRules, getSigmaRuleList } from '../services/sigmaRuleEngin
 import { ingestSiemEvent } from '../services/siemCollectorService.js';
 import { enrichWithThreatIntel } from '../services/threatIntelService.js';
 import { broadcastTelemetryEvent } from '../services/websocketService.js';
+import { requireRole } from '../middleware/auth.js';
 
 export const ingestRouter = Router();
 
 // POST /api/ingest/logs — Parse + Sigma scan + SIEM ingest pipeline
-ingestRouter.post('/logs', (req: Request, res: Response) => {
+ingestRouter.post('/logs', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
   const { logText, logType } = req.body;
 
   if (!logText) {
@@ -107,7 +108,7 @@ ingestRouter.post('/logs', (req: Request, res: Response) => {
 });
 
 // POST /api/ingest/nmap — Parse Nmap XML or text output + NVD CVE enrichment
-ingestRouter.post('/nmap', (req: Request, res: Response) => {
+ingestRouter.post('/nmap', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
   const { rawOutput } = req.body;
   if (!rawOutput) return res.status(400).json({ error: 'Nmap rawOutput required' });
 
@@ -116,7 +117,7 @@ ingestRouter.post('/nmap', (req: Request, res: Response) => {
 });
 
 // POST /api/ingest/zap — Parse OWASP ZAP report
-ingestRouter.post('/zap', (req: Request, res: Response) => {
+ingestRouter.post('/zap', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
   const { reportContent } = req.body;
   if (!reportContent) return res.status(400).json({ error: 'ZAP reportContent required' });
 
@@ -132,7 +133,7 @@ ingestRouter.get('/sigma/rules', (_req: Request, res: Response) => {
 });
 
 // POST /api/ingest/sigma/scan — Scan arbitrary JSON events with Sigma rules
-ingestRouter.post('/sigma/scan', (req: Request, res: Response) => {
+ingestRouter.post('/sigma/scan', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
   const { events } = req.body;
   if (!Array.isArray(events)) {
     return res.status(400).json({ error: 'events must be a JSON array' });

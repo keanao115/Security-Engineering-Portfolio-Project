@@ -1,3 +1,8 @@
+// ─── Data Honesty & Provenance Notice ──────────────────────────────────────────
+// NOTE: 本檔案僅供 IOC 資料庫頁面之靜態參考資料使用，非即時遙測資料來源 (Referential Static Data Only)。
+// 符合 CyberMind AI 作品集「資料誠實性原則」，避免靜態示範資料與即時生產遙測混淆。
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const SAMPLE_WINDOWS_LOGS = `<Events>
   <Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
     <System>
