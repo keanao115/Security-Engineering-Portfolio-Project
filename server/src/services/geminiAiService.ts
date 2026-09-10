@@ -79,12 +79,57 @@ function getGenAI(customApiKey?: string): GoogleGenerativeAI | null {
   return genAI;
 }
 
+export function validateCustomAiEndpoint(rawUrl: string): { valid: boolean; error?: string } {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return { valid: false, error: 'Only HTTP and HTTPS protocols are permitted.' };
+    }
+
+    const hostname = parsed.hostname.toLowerCase();
+    const isLoopback = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+
+    // Block cloud metadata services and link-local addresses
+    if (
+      hostname === '0.0.0.0' ||
+      hostname.startsWith('169.254.') ||
+      hostname.startsWith('224.') ||
+      hostname.includes('metadata.google.internal') ||
+      hostname.includes('instance-data')
+    ) {
+      return { valid: false, error: 'Target endpoint points to prohibited link-local or cloud metadata address (SSRF Protection).' };
+    }
+
+    // Prohibit internal RFC1918 private network probes unless explicitly loopback/localhost
+    if (!isLoopback) {
+      if (
+        hostname.startsWith('10.') ||
+        hostname.startsWith('192.168.') ||
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname)
+      ) {
+        return { valid: false, error: 'Target endpoint points to internal RFC1918 private network (SSRF Protection).' };
+      }
+    }
+
+    return { valid: true };
+  } catch (e: any) {
+    return { valid: false, error: `Malformed URL: ${e.message}` };
+  }
+}
+
 async function callOpenAiCompatible(
   config: UserAiConfig,
   history: ChatMessage[],
   fullMessage: string
 ): Promise<string> {
   let baseUrl = (config.baseUrl && config.baseUrl.trim()) || 'https://api.openai.com/v1';
+
+  // SSRF Validation Guard
+  const ssrfCheck = validateCustomAiEndpoint(baseUrl);
+  if (!ssrfCheck.valid) {
+    throw new Error(`SSRF Blocked: ${ssrfCheck.error}`);
+  }
+
   if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
   const endpoint = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`;
 
@@ -215,6 +260,12 @@ export async function testAiConnection(config: UserAiConfig): Promise<{
 
   if (provider === 'openai' || provider === 'custom') {
     let baseUrl = (config.baseUrl && config.baseUrl.trim()) || 'https://api.openai.com/v1';
+
+    const ssrfCheck = validateCustomAiEndpoint(baseUrl);
+    if (!ssrfCheck.valid) {
+      return { success: false, message: `SSRF Blocked: ${ssrfCheck.error}`, provider };
+    }
+
     if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
     const endpoint = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`;
     const model = (config.model && config.model.trim()) || 'gpt-4o-mini';

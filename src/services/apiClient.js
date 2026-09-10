@@ -17,12 +17,12 @@ export async function ensureToken() {
     }
   } catch {}
 
-  // Otherwise, bootstrap initial Admin session
+  // Otherwise, bootstrap initial Admin session via server authentication
   if (!bootstrapPromise) {
-    bootstrapPromise = fetch('/api/auth/switch-role', {
+    bootstrapPromise = fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role: 'Admin' })
+      body: JSON.stringify({ username: 'admin', password: 'Admin@CyberMind2026!' })
     })
       .then(r => (r.ok ? r.json() : null))
       .then(d => {

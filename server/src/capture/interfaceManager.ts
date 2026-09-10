@@ -39,11 +39,11 @@ export class InterfaceManager {
         name,
         description: `${os.platform() === 'win32' ? 'Npcap / Windows' : 'libpcap / Unix'} Adapter (${name})`,
         ipAddresses: { ipv4: ipv4 || undefined, ipv6: ipv6 || undefined },
-        macAddress: mac || '00:15:5D:01:2A:8C',
+        macAddress: mac || (isLoopback ? '00:00:00:00:00:00' : 'Unavailable'),
         isLoopback,
         isUp: true,
         promiscuousSupported: !isLoopback,
-        mtu: 1500,
+        mtu: isLoopback ? 65536 : 1500,
         speedMbps: isLoopback ? 10000 : 1000,
       });
     }

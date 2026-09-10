@@ -37,22 +37,49 @@ export function AuthProvider({ children }) {
       return guestSession;
     }
 
+    const defaultCredentials = {
+      Admin: { username: 'admin', password: 'Admin@CyberMind2026!' },
+      Analyst: { username: 'analyst', password: 'Analyst@CyberMind2026!' },
+      Viewer: { username: 'viewer', password: 'Viewer@CyberMind2026!' }
+    };
+    const cred = defaultCredentials[targetRole] || defaultCredentials.Viewer;
+
     try {
-      const res = await fetch('/api/auth/switch-role', {
+      // Primary: authenticate against server identity store
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cred)
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const newSession = {
+          token: data.token,
+          user: data.user
+        };
+        setSession(newSession);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newSession));
+        return newSession;
+      }
+
+      // Fallback: in DEMO mode, switch-role endpoint is permitted
+      const demoRes = await fetch('/api/auth/switch-role', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: targetRole })
       });
 
-      if (!res.ok) throw new Error(`Switch role failed: HTTP ${res.status}`);
-      const data = await res.json();
-      const newSession = {
-        token: data.token,
-        user: data.user
-      };
-      setSession(newSession);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newSession));
-      return newSession;
+      if (demoRes.ok) {
+        const data = await demoRes.json();
+        const newSession = {
+          token: data.token,
+          user: data.user
+        };
+        setSession(newSession);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newSession));
+        return newSession;
+      }
     } catch (err) {
       console.error('[AuthContext] switchRole error:', err);
       return null;

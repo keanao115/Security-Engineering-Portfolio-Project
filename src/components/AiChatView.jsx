@@ -1,10 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, Bot, User, Sparkles, Shield, Copy, Check, Zap, AlertCircle, Settings2, RefreshCw, Cpu, Activity } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import { useLanguage } from '../contexts/LanguageContext';
 import { sendAiChatMessage } from '../services/apiClient';
 import { useAiConfig } from '../contexts/AiConfigContext';
 
-// Simple markdown renderer for AI responses
+function sanitizeHtml(rawHtml) {
+  return DOMPurify.sanitize(rawHtml, {
+    ALLOWED_TAGS: ['strong', 'code', 'span', 'b', 'i', 'em', 'p', 'br'],
+    ALLOWED_ATTR: ['class']
+  });
+}
+
+// Simple markdown renderer for AI responses with strict XSS sanitization
 function MarkdownText({ text }) {
   const lines = text.split('\n');
   return (
@@ -14,22 +22,24 @@ function MarkdownText({ text }) {
         if (line.startsWith('## ')) return <h2 key={i} className="text-cyan-200 font-bold mt-2">{line.slice(3)}</h2>;
         if (line.startsWith('**') && line.endsWith('**')) return <p key={i} className="font-bold text-white">{line.slice(2, -2)}</p>;
         if (line.startsWith('- ') || line.startsWith('* ')) {
+          const rawItem = line.slice(2)
+            .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white">$1</strong>')
+            .replace(/`([^`]+)`/g, '<code class="bg-slate-800 px-1 rounded text-cyan-300 text-xs">$1</code>');
           return (
             <div key={i} className="flex gap-2 items-start">
               <span className="text-cyan-400 mt-0.5">•</span>
-              <span dangerouslySetInnerHTML={{ __html: line.slice(2).replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white">$1</strong>').replace(/`([^`]+)`/g, '<code class="bg-slate-800 px-1 rounded text-cyan-300 text-xs">$1</code>') }} />
+              <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(rawItem) }} />
             </div>
           );
         }
         if (line.startsWith('```')) return null;
         if (line.trim() === '') return <div key={i} className="h-1" />;
+        const rawLine = line
+          .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white">$1</strong>')
+          .replace(/`([^`]+)`/g, '<code class="bg-slate-800 px-1 rounded text-cyan-300 text-xs">$1</code>')
+          .replace(/\*(T\d{4}[\.\d]*)\*/g, '<span class="text-yellow-400 font-mono text-xs">$1</span>');
         return (
-          <p key={i} dangerouslySetInnerHTML={{
-            __html: line
-              .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white">$1</strong>')
-              .replace(/`([^`]+)`/g, '<code class="bg-slate-800 px-1 rounded text-cyan-300 text-xs">$1</code>')
-              .replace(/\*(T\d{4}[\.\d]*)\*/g, '<span class="text-yellow-400 font-mono text-xs">$1</span>')
-          }} />
+          <p key={i} dangerouslySetInnerHTML={{ __html: sanitizeHtml(rawLine) }} />
         );
       })}
     </div>

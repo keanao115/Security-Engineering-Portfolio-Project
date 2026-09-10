@@ -63,6 +63,17 @@ async function fetchFromNvd(keyword: string): Promise<NvdCveResult[]> {
       const severity = cvssScore >= 9 ? 'Critical' : cvssScore >= 7 ? 'High' : cvssScore >= 4 ? 'Medium' : 'Low';
       const description = cve.descriptions?.find((d: any) => d.lang === 'en')?.value || 'No description';
 
+      // Truthful Exploit Availability Assessment (CISA KEV + Verified Exploit References)
+      const hasCisaKev = Boolean(cve.cisaExploitAdd || cve.cisaRequiredAction || cve.cisaVulnerabilityName);
+      const hasExploitEvidence = hasCisaKev || (cve.references || []).some((r: any) => {
+        const tags = Array.isArray(r.tags) ? r.tags.map((t: string) => t.toLowerCase()) : [];
+        const url = (r.url || '').toLowerCase();
+        return tags.includes('exploit') ||
+          url.includes('exploit-db.com') ||
+          url.includes('packetstormsecurity.com') ||
+          url.includes('metasploit');
+      });
+
       return {
         cveId: cve.id,
         name: `${cve.id}: ${description.substring(0, 80)}...`,
@@ -70,7 +81,8 @@ async function fetchFromNvd(keyword: string): Promise<NvdCveResult[]> {
         severity,
         cvss: cvssScore,
         cvssVector: metrics?.cvssData?.vectorString,
-        exploitAvailable: !!(cve.configurations?.length > 0),
+        exploitAvailable: hasExploitEvidence,
+        cisaKev: hasCisaKev,
         publishedDate: cve.published,
         references: (cve.references || []).slice(0, 3).map((r: any) => r.url),
         source: 'NVD_API',

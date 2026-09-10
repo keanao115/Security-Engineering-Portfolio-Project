@@ -46,8 +46,35 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ─── Security Middlewares ────────────────────────────────────────────────────
-app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'ws:', 'wss:', 'http:', 'https:'],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
+
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS policy blocked access from origin: ${origin}`));
+    }
+  },
+  credentials: true,
+}));
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -114,6 +141,31 @@ const collectors = [syslogCollector, wefCollector, netflowCollector];
 app.get('/metrics', (_req, res) => {
   res.setHeader('Content-Type', 'text/plain; version=0.0.4');
   res.send(generatePrometheusMetrics(collectors));
+});
+
+// ─── Kubernetes & Container Health Probes ────────────────────────────────────
+// GET /health/live — Liveness probe (unauthenticated, checks process active)
+app.get('/health/live', (_req, res) => {
+  res.status(200).json({
+    status: 'UP',
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime()),
+  });
+});
+
+// GET /health/ready — Readiness probe (unauthenticated, verifies collectors & services)
+app.get('/health/ready', (_req, res) => {
+  const isReady = collectors.every(c => c.getHealth().readiness);
+  res.status(isReady ? 200 : 503).json({
+    status: isReady ? 'READY' : 'DEGRADED',
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime()),
+    collectors: collectors.map(c => ({
+      name: c.name,
+      state: c.getHealth().state,
+      ready: c.getHealth().readiness,
+    })),
+  });
 });
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
