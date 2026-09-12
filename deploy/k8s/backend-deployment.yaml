@@ -15,10 +15,25 @@ spec:
       labels:
         app: soc-backend
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: soc-backend
           image: soc-platform/backend:latest
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 10001
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 5000
               name: http
@@ -69,6 +84,12 @@ spec:
             limits:
               memory: "2Gi"
               cpu: "1000m"
+          volumeMounts:
+            - name: tmp-scratch
+              mountPath: /tmp
+      volumes:
+        - name: tmp-scratch
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

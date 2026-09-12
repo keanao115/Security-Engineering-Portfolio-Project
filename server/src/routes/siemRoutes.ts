@@ -40,7 +40,7 @@ siemRouter.get('/stats', requireRole(['Admin', 'Analyst', 'Viewer']), (req: Requ
   return res.json(stats);
 });
 
-siemRouter.post('/events', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
+siemRouter.post('/events', requireRole(['Admin', 'Analyst', 'Viewer']), (req: Request, res: Response) => {
   const { sourceCategory, hostName, severity, eventId, mitreTechnique, summary, rawDetails } = req.body;
 
   if (!hostName || !summary) {
@@ -62,7 +62,7 @@ siemRouter.post('/events', requireRole(['Admin', 'Analyst']), (req: Request, res
   return res.status(201).json({ message: 'SIEM event ingested and correlated', event: newEvent });
 });
 
-siemRouter.post('/ingest/bulk', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
+siemRouter.post('/ingest/bulk', requireRole(['Admin', 'Analyst', 'Viewer']), (req: Request, res: Response) => {
   const { events } = req.body;
   if (!Array.isArray(events)) {
     return res.status(400).json({ error: 'events must be an array' });

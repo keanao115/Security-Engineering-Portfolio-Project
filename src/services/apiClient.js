@@ -380,16 +380,19 @@ export async function fetchThreatIntelIocs(type) {
   }
 }
 
-// ─── Phase 4: Sigma Rules ─────────────────────────────────────────────────────
+// ─── Phase 4: Sigma Rules (Detection-as-Code) ─────────────────────────────────
 
 export async function fetchSigmaRules() {
   try {
-    const res = await authFetch(`${API_BASE}/ingest/sigma/rules`);
+    let res = await authFetch(`${API_BASE}/sigma/rules`);
+    if (!res.ok) {
+      res = await authFetch(`${API_BASE}/ingest/sigma/rules`);
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
     console.warn('[API Client] fetchSigmaRules fallback:', err.message);
-    return null;
+    return { total: 0, rules: [] };
   }
 }
 
@@ -412,16 +415,25 @@ export async function runSigmaScan(events) {
 
 export async function lookupCveByProduct(software) {
   try {
+    const list = Array.isArray(software) ? software : [software];
     const res = await authFetch(`${API_BASE}/vulnerabilities/lookup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ software }),
+      body: JSON.stringify({ software: list }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    if (res.ok) {
+      return await res.json();
+    }
+    // Fallback to GET /api/vulnerabilities/search
+    if (list.length > 0 && list[0]?.name) {
+      const q = encodeURIComponent(`${list[0].name} ${list[0].version || ''}`.trim());
+      const searchRes = await authFetch(`${API_BASE}/vulnerabilities/search?query=${q}`);
+      if (searchRes.ok) return await searchRes.json();
+    }
+    return { vulnerabilities: [] };
   } catch (err) {
     console.warn('[API Client] lookupCveByProduct fallback:', err.message);
-    return null;
+    return { vulnerabilities: [] };
   }
 }
 
@@ -604,4 +616,127 @@ export function connectLiveTelemetryStream(onMessage, onOpen, onClose) {
     }
   };
 }
+
+async function parseResponseJson(res) {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { error: text?.slice(0, 300) || `HTTP ${res.status} ${res.statusText}` };
+  }
+}
+
+// ─── Detection-as-Code: Sigma YAML Rules API ─────────────────────────────────
+
+export async function testSigmaRule(yamlContent, events = []) {
+  const res = await authFetch(`${API_BASE}/sigma/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ yaml: yamlContent, events }),
+  });
+  const data = await parseResponseJson(res);
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+export async function createSigmaRule(yamlContent, persist = false) {
+  const res = await authFetch(`${API_BASE}/sigma/rules`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ yaml: yamlContent, persist }),
+  });
+  const data = await parseResponseJson(res);
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+export async function reloadSigmaRules() {
+  const res = await authFetch(`${API_BASE}/sigma/reload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  const data = await parseResponseJson(res);
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+// ─── SOAR Automated Actions & Webhook Dispatcher API ──────────────────────────
+
+export async function executeSoarBlockIp({ ip, reason, severity, incidentId, ruleId, force }) {
+  const res = await authFetch(`${API_BASE}/soar/playbooks/block-ip`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ip, reason, severity, incidentId, ruleId, force }),
+  });
+  const data = await parseResponseJson(res);
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+export async function executeSoarUnblockIp(ip) {
+  const res = await authFetch(`${API_BASE}/soar/playbooks/unblock-ip`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ip }),
+  });
+  const data = await parseResponseJson(res);
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+export async function fetchBlockedIps() {
+  try {
+    const res = await authFetch(`${API_BASE}/soar/blocked-ips`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[API Client] fetchBlockedIps fallback:', err.message);
+    return { total: 0, blockedIps: [] };
+  }
+}
+
+export async function dispatchSoarWebhook(payload) {
+  const res = await authFetch(`${API_BASE}/soar/playbooks/webhook`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await parseResponseJson(res);
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+export async function generateSoarFirewallRules(ip, reason) {
+  const res = await authFetch(`${API_BASE}/soar/playbooks/generate-rules`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ip, reason }),
+  });
+  const data = await parseResponseJson(res);
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+export async function generateHostIsolationScript(hostOrIp, os = 'windows') {
+  const res = await authFetch(`${API_BASE}/soar/playbooks/isolate-host`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostOrIp, os }),
+  });
+  const data = await parseResponseJson(res);
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+export async function fetchSoarHistory(limit = 50) {
+  try {
+    const res = await authFetch(`${API_BASE}/soar/history?limit=${limit}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[API Client] fetchSoarHistory fallback:', err.message);
+    return { total: 0, history: [] };
+  }
+}
+
 

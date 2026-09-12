@@ -74,8 +74,8 @@ export const enUS = {
     packetInspector: "Packet Inspector",
     assetDiscovery: "Asset Discovery",
     siemConsole: "SIEM Event Console",
-    simulation: "Attack Simulation",
-    copilot: "SOC Copilot (Playbooks)",
+    simulation: "Adversary Emulation",
+    copilot: "SOC Copilot (IR SOP)",
     rag: "RAG Knowledge Base",
     chat: "AI Chat Assistant",
     settings: "Settings & Profile",
@@ -220,23 +220,23 @@ export const enUS = {
   },
 
   simulation: {
-    title: "Live Cyber Attack Simulation & SOC Response Lab",
-    subtitle: "Simulate real-world attack vectors (Brute Force, Ransomware, PowerShell C2, SQLi) to test AI detection triggers.",
-    simulationTag: "SIMULATION",
-    launchBtn: "Launch Simulation",
+    title: "Controlled Adversary Emulation & SOC Response Lab",
+    subtitle: "Validate real-world attack vectors (Brute Force, Ransomware, PowerShell C2, SQLi) to evaluate detection and response efficacy.",
+    simulationTag: "EMULATION",
+    launchBtn: "Run Validation Vector",
     simulatingBtn: "Simulating Attack...",
     consoleTitle: "SOC Real-Time Event Stream Console",
     executingStatus: "EXECUTING PAYLOAD",
     idleStatus: "IDLE / READY",
-    idlePrompt: "Click 'Launch Simulation' on any attack scenario above to stream live telemetry...",
+    idlePrompt: "Click 'Run Validation Vector' on any scenario above to stream live telemetry...",
     counterMeasureTitle: "CyberMind AI Automated Counter-Measure Triggered",
     mitigatedStatus: "MITIGATED"
   },
 
   copilot: {
-    title: "SOC Analyst Copilot & Incident Investigation Playbooks",
-    subtitle: "Guided incident triage playbooks with automated investigation checklists and host isolation triggers.",
-    availablePlaybooks: "Available Playbooks:",
+    title: "SOC Analyst Copilot & Incident Response Procedures",
+    subtitle: "Guided incident triage procedures with investigation checklists and host isolation triggers.",
+    availablePlaybooks: "Available IR Procedures (SOP):",
     stepsCount: "Step Guided Investigation",
     activeResponse: "Active Incident Response",
     emergencyTrigger: "Emergency Action Trigger:",
@@ -252,8 +252,8 @@ export const enUS = {
   chat: {
     title: "CyberMind AI Chat Assistant (Security Copilot)",
     subtitle: "Ask questions, query incident logs, request custom YARA/Sigma/PowerShell rules.",
-    initialGreeting: "Greetings, Commander. I am CyberMind AI Security Copilot. Ask me any question regarding Windows Event logs, Linux Auth logs, Firewall rules, or request auto-generated mitigation scripts.",
-    inputPlaceholder: "Ask: 'Why is this Windows Event suspicious?', 'Generate PowerShell block script'...",
+    initialGreeting: "Hello. I am CyberMind AI Security Operations Copilot. Ask me any question regarding Windows Event logs, Linux Auth logs, Firewall rules, or request automated remediation procedures and detection rules.",
+    inputPlaceholder: "Ask: 'Why is this Windows Event suspicious?', 'Generate firewall containment rule'...",
     sendBtn: "Send",
     reasoningStatus: "CyberMind AI is reasoning..."
   },

@@ -444,7 +444,7 @@ export default function IncidentCasesView() {
               </div>
 
               <div>
-                <label className="text-slate-400 block mb-1">{isZh ? '事件調查摘要與處置指示' : 'Investigation Summary & Playbook'}</label>
+                <label className="text-slate-400 block mb-1">{isZh ? '事件調查摘要與應變處置程序 (SOP)' : 'Investigation Summary & Response Actions'}</label>
                 <textarea
                   rows={3}
                   placeholder={isZh ? "描述異常特徵、初步證據與第一步隔離措施..." : "Describe anomaly signature, initial evidence, containment steps..."}

@@ -90,7 +90,7 @@ export default function LoginModal({ isOpen, onClose }) {
         </div>
 
         {/* Quick Demo Role Selector */}
-        <div className="mb-5 p-3 rounded-xl bg-slate-950/70 border border-slate-800">
+        <div className="mb-4 p-3 rounded-xl bg-slate-950/70 border border-slate-800">
           <div className="text-[11px] font-mono text-cyan-400 font-semibold mb-2 flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5" />
             {isZh ? '展示與面試快速體驗 (One-Click Role Switch)' : 'Demo & Interview Quick Access'}
@@ -120,6 +120,42 @@ export default function LoginModal({ isOpen, onClose }) {
               Viewer
               <span className="block text-[9px] text-slate-400">唯讀稽核員</span>
             </button>
+          </div>
+        </div>
+
+        {/* Credential Reference & Auto-Fill for Interview Evaluation */}
+        <div className="mb-4 p-3 rounded-xl bg-slate-950/80 border border-cyan-500/20 text-xs font-mono">
+          <div className="text-[11px] text-cyan-400 font-bold mb-1.5 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Key className="w-3.5 h-3.5" />
+              {isZh ? '面試評審預設帳密 (點擊一鍵帶入)' : 'Evaluation Credentials (Click to Autofill)'}
+            </span>
+          </div>
+          <div className="space-y-1 text-[11px]">
+            <div
+              onClick={() => { setUsername('admin'); setPassword('Admin@CyberMind2026!'); setError(''); }}
+              className="flex items-center justify-between p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800/80 border border-slate-800 hover:border-red-500/40 cursor-pointer transition-all"
+              title="點擊填入 Admin 帳密"
+            >
+              <span className="text-red-400 font-bold">Admin:</span>
+              <span className="text-slate-300 font-mono">admin / <code className="text-red-300">Admin@CyberMind2026!</code></span>
+            </div>
+            <div
+              onClick={() => { setUsername('analyst'); setPassword('Analyst@CyberMind2026!'); setError(''); }}
+              className="flex items-center justify-between p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800/80 border border-slate-800 hover:border-cyan-500/40 cursor-pointer transition-all"
+              title="點擊填入 Analyst 帳密"
+            >
+              <span className="text-cyan-400 font-bold">Analyst:</span>
+              <span className="text-slate-300 font-mono">analyst / <code className="text-cyan-300">Analyst@CyberMind2026!</code></span>
+            </div>
+            <div
+              onClick={() => { setUsername('viewer'); setPassword('Viewer@CyberMind2026!'); setError(''); }}
+              className="flex items-center justify-between p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800/80 border border-slate-800 hover:border-emerald-500/40 cursor-pointer transition-all"
+              title="點擊填入 Viewer 帳密"
+            >
+              <span className="text-emerald-400 font-bold">Viewer:</span>
+              <span className="text-slate-300 font-mono">viewer / <code className="text-emerald-300">Viewer@CyberMind2026!</code></span>
+            </div>
           </div>
         </div>
 

@@ -46,6 +46,9 @@ import { zeekRouter } from './routes/zeekRoutes.js';
 import { suricataRouter } from './routes/suricataRoutes.js';
 import { pipelineRouter, createPipelineRouter } from './routes/pipelineRoutes.js';
 import { investigationRouter } from './routes/investigationRoutes.js';
+import { sigmaRouter } from './routes/sigmaRoutes.js';
+import { soarRouter } from './routes/soarRoutes.js';
+import { SigmaYamlEngine } from './services/sigmaYamlEngine.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -212,6 +215,8 @@ app.use('/api/zeek', authenticateJwt, zeekRouter);
 app.use('/api/suricata', authenticateJwt, suricataRouter);
 app.use('/api/pipeline', authenticateJwt, createPipelineRouter(messageQueue, pipelineService));
 app.use('/api/investigation', authenticateJwt, investigationRouter);
+app.use('/api/sigma', authenticateJwt, sigmaRouter);
+app.use('/api/soar', authenticateJwt, soarRouter);
 
 // ─── REST Routes — Core SOC ──────────────────────────────────────────────────
 app.use('/api/auth', authRouter);
@@ -268,6 +273,10 @@ httpServer.listen(PORT, async () => {
   console.log(`=======================================================`);
 
   await initDbConnection();
+
+  // Initialize Detection-as-Code Sigma YAML Engine
+  const sigmaEngine = SigmaYamlEngine.getInstance();
+  console.log(`[Detection-as-Code] Sigma YAML Engine: ${sigmaEngine.getRuleCount()} rules loaded from disk.`);
 
   // Start Enterprise Telemetry Collectors (Syslog RFC 3164/5424, WEF XML, NetFlow v5/v9/IPFIX)
   for (const c of collectors) {

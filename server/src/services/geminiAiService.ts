@@ -56,11 +56,12 @@ import {
   runLocalSocInference,
   runLocalTelemetryAssessment,
   isChineseText,
-  ThreatAnalysisContext,
-  StructuredTelemetryAssessment
+  type ThreatAnalysisContext,
+  type StructuredTelemetryAssessment
 } from './localInferenceEngine.js';
 
-export { ThreatAnalysisContext, isChineseText };
+export type { ThreatAnalysisContext, StructuredTelemetryAssessment };
+export { isChineseText };
 
 export interface UserAiConfig {
   provider?: 'gemini' | 'openai' | 'custom' | 'local';

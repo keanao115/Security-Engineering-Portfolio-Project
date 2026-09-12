@@ -5,8 +5,10 @@ import { parseSuricataEveJson } from '../adapters/suricataParser.js';
 import { parseNmapTelemetry } from '../adapters/nmapParser.js';
 import { parseZapReport } from '../adapters/zapParser.js';
 import { parseYaraSigmaResults } from '../adapters/yaraSigmaParser.js';
+import { parseCloudTrailTelemetry } from '../adapters/cloudTrailParser.js';
 import { memoryDb, pushBatchBounded } from '../db/client.js';
 import { scanWithSigmaRules, getSigmaRuleList } from '../services/sigmaRuleEngine.js';
+import { SigmaYamlEngine } from '../services/sigmaYamlEngine.js';
 import { ingestSiemEvent } from '../services/siemCollectorService.js';
 import { enrichWithThreatIntel } from '../services/threatIntelService.js';
 import { broadcastTelemetryEvent } from '../services/websocketService.js';
@@ -15,7 +17,7 @@ import { requireRole } from '../middleware/auth.js';
 export const ingestRouter = Router();
 
 // POST /api/ingest/logs — Parse + Sigma scan + SIEM ingest pipeline
-ingestRouter.post('/logs', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
+ingestRouter.post('/logs', requireRole(['Admin', 'Analyst', 'Viewer']), (req: Request, res: Response) => {
   const { logText, logType } = req.body;
 
   if (!logText) {
@@ -26,9 +28,13 @@ ingestRouter.post('/logs', requireRole(['Admin', 'Analyst']), (req: Request, res
   let lnxLogs: any[] = [];
   let eveAlerts: any[] = [];
   let detections: any[] = [];
+  let cloudLogs: any[] = [];
 
   // ── Parse by type ─────────────────────────────────────────────────────────
-  if (logType === 'windows' || logText.includes('<Event')) {
+  if (logType === 'cloudtrail' || logType === 'aws' || logText.includes('"eventSource"') || logText.includes('"eventName"') || logText.includes('REST.GET.OBJECT')) {
+    cloudLogs = parseCloudTrailTelemetry(logText);
+    pushBatchBounded(memoryDb.logs, cloudLogs);
+  } else if (logType === 'windows' || logText.includes('<Event')) {
     winLogs = parseWindowsLogTelemetry(logText);
     pushBatchBounded(memoryDb.logs, winLogs);
   } else if (logType === 'suricata' || logText.includes('event_type')) {
@@ -42,10 +48,40 @@ ingestRouter.post('/logs', requireRole(['Admin', 'Analyst']), (req: Request, res
     pushBatchBounded(memoryDb.logs, lnxLogs);
   }
 
-  const allParsed = [...winLogs, ...lnxLogs, ...eveAlerts, ...detections];
+  const allParsed = [...winLogs, ...lnxLogs, ...eveAlerts, ...detections, ...cloudLogs];
 
-  // ── Run Sigma Detection Rules ──────────────────────────────────────────────
+  // ── Run Sigma Detection Rules (Built-in + YAML Engine) ────────────────────
   const sigmaResults = scanWithSigmaRules(allParsed);
+  const yamlEngine = SigmaYamlEngine.getInstance();
+
+  // Evaluate YAML rules against allParsed
+  for (const event of allParsed) {
+    const yamlMatches = yamlEngine.evaluateEvent(event);
+    if (yamlMatches.length > 0) {
+      let existingDet = sigmaResults.detections.find(d => d.event === event);
+      if (!existingDet) {
+        existingDet = { event, matches: [] };
+        sigmaResults.detections.push(existingDet);
+        sigmaResults.matchedEvents++;
+      }
+      for (const ym of yamlMatches) {
+        if (!existingDet.matches.some(m => m.ruleId === ym.ruleId || m.ruleTitle === ym.ruleTitle)) {
+          existingDet.matches.push({
+            ruleId: ym.ruleId,
+            ruleTitle: ym.ruleTitle,
+            level: (ym.level === 'critical' || ym.level === 'high' || ym.level === 'medium' || ym.level === 'low') ? ym.level : 'medium',
+            mitre: ym.mitre,
+            description: ym.description,
+            response: ym.response,
+            matchedEventId: ym.matchedEventId,
+          });
+          sigmaResults.totalDetections++;
+          const lvl = ym.level in sigmaResults.summary ? ym.level : 'medium';
+          sigmaResults.summary[lvl] = (sigmaResults.summary[lvl] || 0) + 1;
+        }
+      }
+    }
+  }
 
   // ── Auto-ingest Sigma hits into SIEM stream ───────────────────────────────
   const siemIngested: any[] = [];
@@ -89,6 +125,7 @@ ingestRouter.post('/logs', requireRole(['Admin', 'Analyst']), (req: Request, res
       windowsCount: winLogs.length,
       linuxCount: lnxLogs.length,
       suricataCount: eveAlerts.length,
+      cloudCount: cloudLogs.length,
       detectionCount: detections.length,
       sigmaHits: sigmaResults.totalDetections,
       siemEventsCreated: siemIngested.length,
@@ -98,12 +135,45 @@ ingestRouter.post('/logs', requireRole(['Admin', 'Analyst']), (req: Request, res
       matchedEvents: sigmaResults.matchedEvents,
       detectionSummary: sigmaResults.summary,
       detections: sigmaResults.detections.map(d => ({
-        eventId: d.event.eventId,
-        host: d.event.computer,
+        eventId: d.event.eventId || d.event.eventName,
+        host: d.event.computer || d.event.awsRegion,
         rules: d.matches.map(m => ({ id: m.ruleId, title: m.ruleTitle, level: m.level, mitre: m.mitre, response: m.response })),
       })),
     },
-    parsed: { windowsLogs: winLogs, linuxLogs: lnxLogs, suricataAlerts: eveAlerts, detections },
+    parsed: { windowsLogs: winLogs, linuxLogs: lnxLogs, suricataAlerts: eveAlerts, cloudLogs, detections },
+  });
+});
+
+// POST /api/ingest/cloudtrail — Ingest AWS CloudTrail JSON or S3 Server Access Logs
+ingestRouter.post('/cloudtrail', requireRole(['Admin', 'Analyst']), (req: Request, res: Response) => {
+  const payload = req.body.logText || req.body;
+  const parsed = parseCloudTrailTelemetry(payload);
+  pushBatchBounded(memoryDb.logs, parsed);
+
+  const siemEvents: any[] = [];
+  for (const cl of parsed) {
+    const siemEvent = ingestSiemEvent({
+      sourceCategory: 'CloudTrail',
+      hostName: `aws-${cl.awsRegion || 'cloud'}`,
+      severity: cl.severity,
+      eventId: cl.eventName,
+      mitreTechnique: cl.mitreTechnique,
+      summary: cl.summary,
+      rawDetails: cl,
+    });
+    siemEvents.push(siemEvent);
+    broadcastTelemetryEvent({
+      type: 'SIEM_EVENT',
+      event: siemEvent,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  return res.json({
+    message: `Cloud telemetry ingested — ${parsed.length} events processed into SIEM`,
+    count: parsed.length,
+    events: parsed,
+    siemEventsCount: siemEvents.length,
   });
 });
 

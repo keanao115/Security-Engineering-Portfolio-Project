@@ -64,7 +64,7 @@ export default function AiChatView({ apiKey: propApiKey }) {
     { label: 'PowerShell -enc 分析', prompt: '行程建立日誌顯示 powershell.exe 帶有 -EncodedCommand 參數，請問此攻擊手法為何？如何應變？', icon: '💻' },
     { label: '開放端口威脅關聯', prompt: '請依據系統當前掃描到的開放連接埠（如 Port 445 SMB、Port 3389 RDP、Port 80/443 等）分析潛在攻擊面與弱點。', icon: '🌐' },
     { label: '生成 Sigma 偵測規則', prompt: '請幫我編寫一條偵測混淆 PowerShell (Event 4688 含 -enc) 的 Sigma 規則。', icon: '📋' },
-    { label: '勒索軟體 SOP 處置', prompt: '請提供一份針對 Windows 網域控制器疑似遭受勒索軟體感染之標準緊急應變處置劇本 (IR Playbook)。', icon: '🛡️' },
+    { label: '勒索軟體 SOP 處置', prompt: '請提供一份針對 Windows 網域控制器疑似遭受勒索軟體感染之標準緊急應變處置作業程序 (IR Procedure / SOP)。', icon: '🛡️' },
   ];
 
   const quickPromptsEn = [
@@ -73,7 +73,7 @@ export default function AiChatView({ apiKey: propApiKey }) {
     { label: 'PowerShell -enc Anomaly', prompt: 'A process created event shows powershell.exe with -EncodedCommand parameter. What is the threat and remediation?', icon: '💻' },
     { label: 'Open Ports Correlation', prompt: 'Correlate potential threat attack surfaces based on the currently discovered open ports (e.g. SMB 445, RDP 3389, Web 80/443).', icon: '🌐' },
     { label: 'Sigma Rule Generation', prompt: 'Write a Sigma rule to detect encoded PowerShell execution (Event ID 4688 with -enc or -EncodedCommand).', icon: '📋' },
-    { label: 'Ransomware IR Playbook', prompt: 'Give me an incident response playbook for a suspected ransomware infection on a Windows domain controller.', icon: '🛡️' },
+    { label: 'Ransomware IR SOP', prompt: 'Give me an incident response standard operating procedure for a suspected ransomware infection on a Windows domain controller.', icon: '🛡️' },
   ];
 
   const quickPrompts = isZh ? quickPromptsZh : quickPromptsEn;
@@ -82,7 +82,7 @@ export default function AiChatView({ apiKey: propApiKey }) {
     {
       sender: 'ai',
       text: isZh
-        ? `長官好！我是 **CyberMind AI 智慧資安助手 (Security Copilot)**。\n\n• **分析引擎機制**：當您在設定中心提供 API 金鑰時，我將由您指定的雲端 API 模型（${isOnlineActive ? `☁️ ${aiConfig.provider?.toUpperCase()}: ${aiConfig.model}` : 'Google Gemini / OpenAI'}）進行全系統真實數據分析；**若未提供任何 API，我將自動使用本地模型（🖥️ CyberMind 實時遙測推論引擎 / Ollama）直接對真實數據進行深度分析**。\n• **當前數據掛載**：已即時連接 SIEM 實時日誌、網路連接埠掃描與 NIST NVD 弱點資料庫。\n\n您可以點擊下方快捷按鈕，或直接提問！`
+        ? `您好！我是 **CyberMind AI 資安運維助手 (SecOps Copilot)**。\n\n• **分析引擎機制**：當您在設定中心提供 API 金鑰時，我將由您指定的雲端 API 模型（${isOnlineActive ? `☁️ ${aiConfig.provider?.toUpperCase()}: ${aiConfig.model}` : 'Google Gemini / OpenAI'}）進行全系統真實數據分析；**若未提供任何 API，我將自動使用本地模型（🖥️ CyberMind 實時遙測推論引擎 / Ollama）直接對真實數據進行深度分析**。\n• **當前數據掛載**：已即時連接 SIEM 實時日誌、網路連接埠掃描與 NIST NVD 弱點資料庫。\n\n您可以點擊下方快捷按鈕，或直接提問！`
         : `Greetings! I am **CyberMind AI Security Operations Copilot**.\n\n• **Inference Mechanism**: When you configure an API key, I utilize your specified cloud AI model (${isOnlineActive ? `☁️ ${aiConfig.provider?.toUpperCase()}: ${aiConfig.model}` : 'Google Gemini / OpenAI'}) for authentic telemetry analysis; **if no API key is provided, I automatically run on the Local Model (🖥️ Deterministic SOC Telemetry Engine / Ollama) to analyze your real system data**.\n• **Mounted Telemetry**: Live SIEM logs, open ports, and NIST NVD CVE catalog are active.\n\nClick any quick prompt below or type your inquiry to begin!`,
       timestamp: new Date().toISOString(),
     }

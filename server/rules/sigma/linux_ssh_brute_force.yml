@@ -1,0 +1,30 @@
+title: Linux SSH Authentication Failure Surge
+id: b8289412-4217-48f0-b2cc-1234abcd5678
+status: production
+description: Detects SSH authentication failures and invalid user attempts on Linux servers from auth.log / secure log streams.
+references:
+  - https://attack.mitre.org/techniques/T1110/001/
+author: CyberMind SOC Detection Engineering Team
+date: 2024/01/22
+tags:
+  - attack.credential_access
+  - attack.t1110.001
+logsource:
+  category: authentication
+  product: linux
+  service: sshd
+detection:
+  selection_sshd:
+    process: sshd
+  selection_keywords:
+    details|contains:
+      - 'Failed password'
+      - 'Invalid user'
+      - 'authentication failure'
+  condition: selection_sshd and selection_keywords
+fields:
+  - src_ip
+  - user
+  - process
+level: high
+response: Blacklist offending remote IP with iptables/UFW. Enforce SSH key-based authentication and disable root password login.

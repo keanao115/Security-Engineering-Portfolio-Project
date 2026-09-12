@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: CI Pipeline & DevSecOps Automated Security Scanners
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   backend-checks:
-    name: Backend Lint, Types & Unit Tests
+    name: Backend Lint, Types & Security Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -58,3 +58,80 @@ jobs:
 
       - name: Build Frontend Assets (Vite)
         run: npm run build
+
+  # ─── DevSecOps Security Job 1: Secret & Credential Leak Scanning (Gitleaks) ─
+  secret-scan:
+    name: Secret & Credential Leak Scan (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code with Full History
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks Secret Scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+  # ─── DevSecOps Security Job 2: SAST Static Application Security (Semgrep) ──
+  sast-scan:
+    name: SAST Code Security Scan (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep OSS Security Audit
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/owasp-top
+            p/javascript
+            p/typescript
+        continue-on-error: true
+
+  # ─── DevSecOps Security Job 3: SCA & Container/Dockerfile Scan (Trivy) ─────
+  sca-container-scan:
+    name: SCA & Container Security Scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy Filesystem & Lockfile Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'CRITICAL,HIGH'
+          format: 'table'
+        continue-on-error: true
+
+      - name: Run Trivy Dockerfile Config Audit
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: 'deploy/'
+          severity: 'CRITICAL,HIGH'
+          format: 'table'
+        continue-on-error: true
+
+  # ─── DevSecOps Security Job 4: IaC Security & CSPM Gatekeeping (Checkov) ───
+  iac-security-scan:
+    name: IaC Security & CSPM Gatekeeping (Checkov)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Checkov IaC Security Scanner on Terraform
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: deploy/terraform
+          framework: terraform
+          output_format: cli
+          soft_fail: true
+

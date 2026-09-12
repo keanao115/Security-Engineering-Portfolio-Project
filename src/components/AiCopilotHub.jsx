@@ -11,7 +11,7 @@ export default function AiCopilotHub({ apiKey }) {
 
   const subTabs = [
     { id: 'chat', label: t('aiHub.chatTab', 'AI 資安智能對話 (AI Chat Copilot)'), icon: MessageSquare },
-    { id: 'playbook', label: t('aiHub.playbookTab', '事件應變與處置劇本 (SOC Playbooks)'), icon: Bot },
+    { id: 'playbook', label: t('aiHub.playbookTab', '事件應變處置作業程序 (Incident Response SOP)'), icon: Bot },
   ];
 
   return (
@@ -25,8 +25,8 @@ export default function AiCopilotHub({ apiKey }) {
           </h2>
           <p className="text-xs text-slate-400 font-mono mt-0.5">
             {isZh
-              ? '整合使用者指定 API 模型與本地模型真實數據分析，並支援標準化資安事件處置應變 (Incident Response) 引導劇本'
-              : 'Enterprise SOC reasoning powered by user-configured AI APIs or Local Model with Incident Response playbooks'}
+              ? '整合使用者指定 API 模型與本地模型真實數據分析，並支援標準化資安事件處置應變 (Incident Response) 作業程序 (SOP)'
+              : 'Enterprise SOC reasoning powered by user-configured AI APIs or Local Model with Incident Response procedures'}
           </p>
         </div>
 

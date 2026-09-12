@@ -1,0 +1,31 @@
+title: Apache Log4j JNDI Remote Code Execution (CVE-2021-44228)
+id: a1098452-f472-4b20-99bb-928472910fed
+status: production
+description: Detects inbound web traffic, URIs, or headers containing JNDI lookup strings (${jndi:ldap, ${jndi:rmi) targeting Apache Log4j vulnerability.
+references:
+  - https://nvd.nist.gov/vuln/detail/CVE-2021-44228
+  - https://attack.mitre.org/techniques/T1190/
+author: CyberMind SOC Detection Engineering Team
+date: 2024/02/10
+tags:
+  - attack.initial_access
+  - attack.t1190
+  - cve.2021-44228
+logsource:
+  category: webserver
+  product: generic
+detection:
+  selection_jndi:
+    details|contains:
+      - '${jndi:ldap'
+      - '${jndi:rmi'
+      - '${jndi:dns'
+      - '${jndi:nis'
+      - '${jndi:corba'
+  condition: selection_jndi
+fields:
+  - src_ip
+  - uri
+  - user_agent
+level: critical
+response: Block remote source IP on perimeter WAF immediately. Verify patched log4j-core >= 2.17.1. Check egress DNS queries for data exfiltration.

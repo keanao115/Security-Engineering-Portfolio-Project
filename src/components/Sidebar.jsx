@@ -32,15 +32,15 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     {
       label: t('sidebar.aiResponse', 'AI 智能與事件處置'),
       items: [
-        { id: 'ai-copilot', label: 'AI 資安副手 (Copilot)', icon: Bot, badge: 'GEMINI' },
+        { id: 'ai-copilot', label: 'AI 資安副手 (Copilot)', icon: Bot, badge: 'AI / SOP' },
         { id: 'reports', label: t('sidebar.reports', '資安事件調查報告'), icon: FileSpreadsheet },
       ]
     },
     {
-      label: t('sidebar.intelSimulation', '情報知識與模擬演練'),
+      label: t('sidebar.intelSimulation', '威脅情資與攻防驗證 (Threat Intel & Emulation)'),
       items: [
         { id: 'threat-intel', label: '威脅情報與 MITRE 矩陣', icon: Database, badge: 'REF' },
-        { id: 'simulation', label: t('sidebar.simulation', '攻擊演練模擬 (Simulation)'), icon: Zap, badge: 'DEMO' },
+        { id: 'simulation', label: t('sidebar.simulation', '威脅攻防驗證 (Adversary Emulation)'), icon: Zap, badge: 'VECTORS' },
         { id: 'settings', label: t('sidebar.settings', '系統設定與權限 (Settings)'), icon: Settings },
       ]
     }

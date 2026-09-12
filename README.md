@@ -66,12 +66,12 @@ The platform provides 11 streamlined, high-value security modules divided into t
 - **IDS 聯防與事件調查中心 (Threat Investigation Hub)**: 彙整 Zeek 協定日誌、Suricata EVE IDS 告警流與多來源事件時序關聯證據鏈 (Evidence Timeline)。
 
 ### 2. 🤖 AI Intelligence & Incident Response (AI 智能與事件處置)
-- **AI 資安副手 (AI SOC Copilot & Playbooks)**: 整合 Google Gemini 1.5 Flash 自由研判對話與標準化資安事件處置應變 (Incident Response) 引導式劇本。
+- **AI 資安副手 (AI SOC Copilot & IR SOP)**: 整合 Google Gemini 1.5 Flash 自由研判對話與標準化資安事件處置應變 (Incident Response) 作業程序 (SOP)。
 - **資安事件調查報告 (Incident Reports)**: 一鍵匯出符合 CISO 稽核規範的資安事件調查報告 (支援 PDF 輸出)。
 
-### 3. 📚 Threat Intel & Controlled Simulation (情報知識與模擬演練)
+### 3. 📚 Threat Intel & Controlled Emulation (情報知識與攻防驗證)
 - **威脅情報與防禦框架知識庫 (Threat Intel & MITRE ATT&CK)**: 明確標記之靜態情報參考庫，包含 MITRE ATT&CK 戰術矩陣、高危 IOC 清單與 RAG 知識庫。
-- **攻擊演練情境模擬 (Attack Simulation)**: 受控情境演練劇本（暴力破解、混淆 PowerShell、勒索軟體行為與 SQL 注入）。
+- **受控威脅攻防驗證 (Adversary Emulation)**: 受控攻防驗證情境（暴力破解、混淆 PowerShell、勒索軟體行為與 SQL 注入）。
 - **系統設定與存取控制 (Settings & RBAC)**: 支援即時切換 LIVE / DEMO 運行模式，並提供 Admin / Analyst / Viewer 權限即時驗證。
 
 ---
@@ -92,7 +92,7 @@ The platform provides 11 streamlined, high-value security modules divided into t
 | **NIST NVD CVE API** | **真實實作** | `NVD_API` | NIST 官方 REST API v2.0 (具 LRU 快取) |
 | **Local Host Discovery** | **真實實作** | `OS_DISCOVERY` | 系統級 ARP 表、網卡、Netstat 連線 |
 | **AI Threat Hunting** | **真實實作** | Google Gemini 1.5 Flash | REST API 整合 (具離線規則回退) |
-| **Attack Simulation** | **受控劇本** | `SCENARIO_SIMULATION` | 教學與面試專用展示腳本 |
+| **Adversary Emulation** | **受控情境** | `SCENARIO_SIMULATION` | 教學與面試專用驗證情境 |
 
 ---
 

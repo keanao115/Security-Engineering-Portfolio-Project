@@ -1,0 +1,44 @@
+title: Suspicious PowerShell Encoded Command Execution
+id: f0230623-1d0a-47fa-8025-0a91176b5db9
+status: production
+description: Detects PowerShell invocation with Base64 encoded command arguments often utilized by adversaries and malware frameworks (e.g. Cobalt Strike, Empire).
+references:
+  - https://attack.mitre.org/techniques/T1059/001/
+  - https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_powershell_exe
+author: CyberMind SOC Detection Engineering Team
+date: 2024/01/15
+modified: 2024/03/10
+tags:
+  - attack.execution
+  - attack.t1059.001
+  - attack.defense_evasion
+  - attack.t1027
+logsource:
+  category: process_creation
+  product: windows
+  service: security
+detection:
+  selection_proc:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  selection_cli:
+    CommandLine|contains:
+      - '-enc'
+      - '-encodedcommand'
+      - '-e '
+      - 'frombase64string'
+      - 'invoke-expression'
+      - 'iex'
+  filter_legit:
+    CommandLine|contains:
+      - 'Microsoft Visual Studio'
+  condition: (selection_proc or selection_cli) and not filter_legit
+fields:
+  - CommandLine
+  - ParentProcessName
+  - User
+falsepositives:
+  - Complex administrative deployment scripts from SCCM/Intune
+level: critical
+response: Isolate endpoint immediately. Decode Base64 payload. Check parent process hierarchy.

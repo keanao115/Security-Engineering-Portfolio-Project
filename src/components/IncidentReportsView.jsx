@@ -203,7 +203,7 @@ This report details the technical security findings and defensive telemetry eval
           <ul className="list-disc list-inside space-y-1 text-slate-300">
             <li>{language === 'zh-TW' ? '定期與威脅情資資料庫 (Threat Intel Feeds) 同步最新惡意 IP 黑名單。' : 'Periodic IP blocklist synchronization with Threat Intel feeds.'}</li>
             <li>{language === 'zh-TW' ? '針對所有遠端主機管理通道強制實施 2FA / MFA 雙因素身分驗證。' : 'Enforce mandatory 2FA on remote management consoles.'}</li>
-            <li>{language === 'zh-TW' ? '利用「攻擊模擬」模組驗證自訂事件應變處置劇本 (Playbooks)。' : 'Use the Attack Simulation Module to test custom incident response playbooks.'}</li>
+            <li>{language === 'zh-TW' ? '利用「威脅攻防驗證」模組驗證自訂事件應變處置程序 (Incident Response Procedures)。' : 'Use the Adversary Emulation Module to test custom incident response procedures.'}</li>
           </ul>
         </div>
       </div>

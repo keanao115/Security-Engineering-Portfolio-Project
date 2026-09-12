@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { Bot, CheckSquare, Square, ShieldAlert, ArrowRight, CheckCircle, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import SoarActionModal from './SoarActionModal';
 
 const PLAYBOOKS_DATA = [
   {
     id: 'pb-1',
     title: {
-      'zh-TW': 'PowerShell 與惡意命令列稽核 SOP 處置劇本',
-      'en-US': 'PowerShell & Command Line Audit SOP Playbook'
+      'zh-TW': 'PowerShell 與惡意命令列稽核 SOP 應變程序',
+      'en-US': 'PowerShell & Command Line Audit SOP Procedure'
     },
     steps: {
       'zh-TW': [
@@ -55,6 +56,7 @@ export default function SocCopilotView() {
 
   const [selectedPlaybookId, setSelectedPlaybookId] = useState(PLAYBOOKS_DATA[0].id);
   const [completedSteps, setCompletedSteps] = useState({ 0: true, 1: true });
+  const [showSoarModal, setShowSoarModal] = useState(false);
 
   const activePlaybook = PLAYBOOKS_DATA.find(p => p.id === selectedPlaybookId) || PLAYBOOKS_DATA[0];
   const activeTitle = activePlaybook.title[langKey] || activePlaybook.title['zh-TW'];
@@ -71,19 +73,19 @@ export default function SocCopilotView() {
         <div>
           <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
             <Bot className="w-6 h-6 text-cyan-400" />
-            {t('copilot.title', 'SOC Analyst Copilot & Incident Investigation Playbooks')}
+            {t('copilot.title', 'SOC Analyst Copilot & Incident Response Procedures')}
           </h2>
           <p className="text-xs text-slate-400 font-mono mt-1">
-            {t('copilot.subtitle', 'Guided incident triage playbooks with automated investigation checklists and host isolation triggers.')}
+            {t('copilot.subtitle', 'Guided incident triage procedures with investigation checklists and host isolation triggers.')}
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Playbook list */}
+        {/* Response Procedures list */}
         <div className="space-y-3">
           <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">
-            {t('copilot.availablePlaybooks', 'Available Playbooks:')}
+            {t('copilot.availablePlaybooks', 'Available IR Procedures:')}
           </span>
           {PLAYBOOKS_DATA.map((pb) => {
             const isSelected = selectedPlaybookId === pb.id;
@@ -108,7 +110,7 @@ export default function SocCopilotView() {
           })}
         </div>
 
-        {/* Selected Playbook Step Checklist */}
+        {/* Selected Response Procedure Step Checklist */}
         <div className="md:col-span-2 glass-panel p-6 rounded-2xl space-y-5">
           <div className="flex items-center justify-between border-b border-slate-900 pb-3">
             <h3 className="text-sm font-bold text-white font-mono flex items-center gap-2">
@@ -151,12 +153,27 @@ export default function SocCopilotView() {
             <span className="text-xs font-mono text-slate-400">
               {t('copilot.emergencyTrigger', 'Emergency Action Trigger:')}
             </span>
-            <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 font-mono text-xs font-bold transition-all">
+            <button
+              onClick={() => setShowSoarModal(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 font-mono text-xs font-bold transition-all"
+            >
               <ShieldCheck className="w-4 h-4" /> {t('copilot.isolateHostBtn', 'Isolate Target Host DC-SRV-01')}
             </button>
           </div>
         </div>
       </div>
+
+      <SoarActionModal
+        isOpen={showSoarModal}
+        initialData={{
+          ip: '192.168.1.105',
+          summary: activeTitle,
+          severity: 'Critical',
+          incidentId: 'INC-2026-001',
+          mitreTechnique: 'T1059.001',
+        }}
+        onClose={() => setShowSoarModal(false)}
+      />
     </div>
   );
 }

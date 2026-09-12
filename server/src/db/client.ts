@@ -46,6 +46,8 @@ export const memoryDb = {
       updatedAt: new Date().toISOString()
     }
   ] as any[],
+  blockedIps: [] as any[],
+  soarExecutions: [] as any[],
 };
 
 /**

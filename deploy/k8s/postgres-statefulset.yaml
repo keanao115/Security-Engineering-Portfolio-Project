@@ -14,9 +14,23 @@ spec:
       labels:
         app: postgres
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: postgres
           image: postgres:16-alpine
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 70
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 5432
               name: postgres
@@ -33,6 +47,15 @@ spec:
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
+            - name: tmp-scratch
+              mountPath: /tmp
+            - name: run-socket
+              mountPath: /var/run/postgresql
+      volumes:
+        - name: tmp-scratch
+          emptyDir: {}
+        - name: run-socket
+          emptyDir: {}
   volumeClaimTemplates:
     - metadata:
         name: postgres-data

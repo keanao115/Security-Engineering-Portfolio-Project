@@ -1,0 +1,31 @@
+title: Windows Brute Force or Password Spraying (EventID 4625)
+id: c9281a8b-3db4-473d-8153-f72be20ff9d1
+status: production
+description: Detects failed Windows logon attempts (EventID 4625) indicative of automated credential stuffing, brute force, or password spraying.
+references:
+  - https://attack.mitre.org/techniques/T1110/001/
+author: CyberMind SOC Detection Engineering Team
+date: 2024/01/20
+tags:
+  - attack.credential_access
+  - attack.t1110.001
+logsource:
+  category: authentication
+  product: windows
+  service: security
+detection:
+  selection_event:
+    EventID: 4625
+  selection_details:
+    details|contains:
+      - 'logon failure'
+      - 'failed logon'
+      - '4625'
+  condition: selection_event or selection_details
+fields:
+  - EventID
+  - TargetUserName
+  - SourceNetworkAddress
+  - LogonType
+level: high
+response: Trigger account lockout policy. Block source IP at network perimeter. Review Active Directory audit telemetry.

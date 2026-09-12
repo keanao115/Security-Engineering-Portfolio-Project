@@ -74,8 +74,8 @@ export const zhTW = {
     packetInspector: "深度封包檢視 (Packet Inspector)",
     assetDiscovery: "主動資產發現 (Asset Discovery)",
     siemConsole: "SIEM 即時事件主控台",
-    simulation: "攻擊模擬 (Simulation)",
-    copilot: "SOC Copilot (處置劇本)",
+    simulation: "威脅攻防驗證 (Adversary Emulation)",
+    copilot: "SOC Copilot (應變程序 SOP)",
     rag: "RAG 知識庫 (Knowledge)",
     chat: "AI 資安助理 (AI Copilot)",
     settings: "系統設定與權限 (Settings)",
@@ -84,7 +84,7 @@ export const zhTW = {
 
   dashboard: {
     criticalIncidentTitle: "偵測到極高風險資安事件：",
-    criticalIncidentDesc: "主機 DC-SRV-01 偵測到混淆 Base64 PowerShell 發起 C2 遠端下載。自動化處置腳本已就緒。",
+    criticalIncidentDesc: "主機 DC-SRV-01 偵測到混淆 Base64 PowerShell 發起 C2 遠端下載。自動化應變程序已就緒。",
     investigateNow: "立即深入調查",
     overallScore: "整體安全評分",
     networkProt: "網路安全防護",
@@ -113,16 +113,16 @@ export const zhTW = {
 
   threat: {
     title: "AI 自動化威脅分析與緩解處置",
-    subtitle: "多維度關聯分析、CVE 比對、MITRE ATT&CK 戰術對齊與防禦腳本自動生成。",
+    subtitle: "多維度關聯分析、CVE 比對、MITRE ATT&CK 戰術對齊與防禦規則自動生成。",
     storylineTitle: "AI 攻擊發展故事線 (Attack Storyline)",
     storylineContent: "攻擊者透過遠端密碼暴力破解（事件 ID 4625）自 IP 185.220.101.5 鎖定 Administrator 帳號發動入侵。獲取權限後，啟動混淆 Base64 PowerShell（事件 ID 4688）自外部下載惡意載荷 shell.ps1。隨後建立特權後門本地帳號 shadow_admin（事件 ID 4720）進行長期潛伏，並手動清空稽核日誌（事件 ID 1102）企圖銷毀鑑識證據。",
     targetSystem: "受害目標系統：",
     attackerOrigin: "攻擊者來源：",
     mitreTechnique: "MITRE 攻擊手法：",
     aiFix: "AI 建議緩解措施：",
-    scriptGeneratorTitle: "自動化事件遏阻與防禦腳本生成器",
+    scriptGeneratorTitle: "自動化事件遏阻與防禦指令生成器",
     scriptGeneratorDesc: "針對本次事件自動合成可一鍵套用之客製化防禦指令碼",
-    copyCode: "複製腳本",
+    copyCode: "複製指令碼",
     copied: "已複製！",
     tabs: {
       powershell: "PowerShell (Windows)",
@@ -220,23 +220,23 @@ export const zhTW = {
   },
 
   simulation: {
-    title: "真實網路攻擊模擬 & SOC 即時應變演練場",
-    subtitle: "實時模擬暴力破解、混淆 PowerShell C2、LockBit 勒索軟體破壞、SQL 注入等經典攻擊場景。",
-    simulationTag: "攻擊演練",
-    launchBtn: "啟動攻擊模擬",
+    title: "受控威脅攻防驗證 & SOC 即時應變演練場",
+    subtitle: "實時模擬暴力破解、混淆 PowerShell C2、LockBit 勒索軟體破壞、SQL 注入等關鍵攻擊向量。",
+    simulationTag: "威脅驗證",
+    launchBtn: "啟動威脅驗證",
     simulatingBtn: "正在執行攻擊載荷...",
     consoleTitle: "SOC 即時事件串流主控台",
     executingStatus: "正在發射攻擊載荷",
     idleStatus: "系統待命 / 監控中",
-    idlePrompt: "點擊上方任一攻擊場景的「啟動攻擊模擬」即可在主控台觀看即時遙測串流...",
+    idlePrompt: "點擊上方任一攻擊場景的「啟動威脅驗證」即可在主控台觀看即時遙測串流...",
     counterMeasureTitle: "CyberMind AI 自動化防禦反制機制已觸發",
     mitigatedStatus: "威脅已遏阻 (MITIGATED)"
   },
 
   copilot: {
-    title: "SOC 資安分析師 Copilot & 事件調查處置劇本",
+    title: "SOC 資安分析師 Copilot & 事件調查處置程序",
     subtitle: "引導式標準作業程序 (SOP)，提供循序漸進的排查清單與一鍵式主機網絡隔離觸發器。",
-    availablePlaybooks: "可用處置劇本：",
+    availablePlaybooks: "標準應變程序 (SOP)：",
     stepsCount: "個引導式排查步驟",
     activeResponse: "事件應變進行中",
     emergencyTrigger: "緊急行動觸發器：",
@@ -252,8 +252,8 @@ export const zhTW = {
   chat: {
     title: "CyberMind AI 智慧資安助手 (Security Copilot)",
     subtitle: "針對可疑日誌提問、查詢資安事件、要求生成客製化 YARA / Sigma / PowerShell 防禦規則。",
-    initialGreeting: "長官好！我是 CyberMind AI 資安助手。您可以向我詢問任何關於 Windows 事件日誌、Linux 授權紀錄、防火牆封包的問題，或要求我立即為您生成應變處置腳本。",
-    inputPlaceholder: "提問範例：'為什麼這個 Windows Event 很可疑？'、'生成阻擋 IP 185.220.101.5 的 PowerShell 腳本'...",
+    initialGreeting: "您好！我是 CyberMind AI 資安運維助手 (SecOps Copilot)。您可以向我詢問任何關於 Windows 事件日誌、Linux 授權紀錄、防火牆封包的問題，或要求我立即為您生成應變處置規則與指令。",
+    inputPlaceholder: "提問範例：'為什麼這個 Windows Event 很可疑？'、'生成阻擋 IP 185.220.101.5 的防火牆防禦規則'...",
     sendBtn: "發送",
     reasoningStatus: "CyberMind AI 正在推理中..."
   },

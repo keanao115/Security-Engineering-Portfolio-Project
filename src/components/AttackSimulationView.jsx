@@ -254,7 +254,7 @@ detection:
         '[14:28:12] ALERT TRIGGERED: High Velocity Mass File Rename & Shadow Copy Purge'
       ],
       detection: isZh ? 'T1486 資料加密勒索 / T1490 阻斷系統復原' : 'T1486 Data Encrypted for Impact / T1490 Inhibit System Recovery',
-      aiAction: isZh ? '中斷磁碟 I/O，隔離 DC-SRV-01 網卡，啟動快照回滾劇本' : 'Emergency Halt Disk I/O, Disable Network Adapter, Deploy Immutable Rollback',
+      aiAction: isZh ? '中斷磁碟 I/O，隔離 DC-SRV-01 網卡，啟動快照回滾程序' : 'Emergency Halt Disk I/O, Disable Network Adapter, Deploy Immutable Rollback',
       storyline: isZh
         ? '勒索軟體載荷於 DC-SRV-01 啟動，率先調用 vssadmin.exe delete shadows 銷毀所有系統還原點以阻斷災難復原路徑，隨後在 Documents 目錄下進行檔案批次加密與副檔名變更 (.lockbit)。系統已即時封鎖磁碟寫入並斷開網絡連線。'
         : 'Ransomware stager initiated on DC-SRV-01, invoking vssadmin.exe delete shadows to eliminate volume restore points before initiating high-velocity document encryption under user profile paths. Defensive agent severed network adapter and froze disk write queues.',
@@ -307,7 +307,7 @@ detection:
           target: "C:\\Users\\Administrator\\Documents",
           attackerIp: "Local Executable Payload",
           description: isZh ? "Documents 資料夾下偵測到高通量檔案批次更名與加密。" : "Bulk file rename and encryption detected under document folders.",
-          remediation: isZh ? "暫停磁碟 I/O，隔離主機，部署不可竄改之備份回滾劇本。" : "Halt disk I/O, isolate host, deploy immutable backup rollback playbook."
+          remediation: isZh ? "暫停磁碟 I/O，隔離主機，部署不可竄改之備份回滾程序。" : "Halt disk I/O, isolate host, deploy immutable backup rollback procedure."
         }
       ],
       scripts: {
@@ -535,7 +535,7 @@ export default function AttackSimulationView({ onLaunchScenario }) {
           <div>
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                {isZh ? '已就緒之演練劇本' : 'ACTIVE SCENARIO READY'}
+                {isZh ? '已就緒之受控威脅情境' : 'ACTIVE SCENARIO READY'}
               </span>
               <h3 className="text-base font-bold text-white font-mono">{activeScenario.title}</h3>
             </div>
@@ -548,7 +548,7 @@ export default function AttackSimulationView({ onLaunchScenario }) {
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-red-600 hover:from-amber-400 hover:to-red-500 text-slate-950 font-mono text-xs font-bold shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50 shrink-0"
           >
             {isSimulating ? <RefreshCw className="w-4 h-4 animate-spin text-slate-950" /> : <Play className="w-4 h-4 fill-slate-950" />}
-            {isSimulating ? (isZh ? '正在串流注入演練日誌...' : 'Injecting Attack Telemetry...') : (isZh ? '啟動 AI 威脅演練 (Run Simulation)' : 'Run Simulation')}
+            {isSimulating ? (isZh ? '正在串流注入演練日誌...' : 'Injecting Attack Telemetry...') : (isZh ? '啟動威脅驗證 (Run Adversary Emulation)' : 'Run Emulation')}
           </button>
         </div>
 

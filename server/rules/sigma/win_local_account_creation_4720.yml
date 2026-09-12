@@ -1,0 +1,30 @@
+title: New Local User Account Created (EventID 4720)
+id: f3981014-ba38-4fa7-bf41-6927a4d0ec55
+status: production
+description: Detects creation of a new local user account on Windows endpoints or servers, frequently utilized by adversaries for persistence.
+references:
+  - https://attack.mitre.org/techniques/T1136/001/
+author: CyberMind SOC Detection Engineering Team
+date: 2024/01/18
+tags:
+  - attack.persistence
+  - attack.t1136.001
+logsource:
+  category: account_management
+  product: windows
+  service: security
+detection:
+  selection_event:
+    EventID: 4720
+  selection_details:
+    details|contains:
+      - 'user account was created'
+      - 'new user created'
+      - '4720'
+  condition: selection_event or selection_details
+fields:
+  - EventID
+  - TargetUserName
+  - SubjectUserName
+level: high
+response: Validate whether user creation was approved through IT Change Management ticket. Remove unauthorized backdoor accounts.
